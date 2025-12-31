@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
+import { joinEvent as joinEventAction, leaveEvent as leaveEventAction } from '@/app/lib/eventActions';
+import { Event } from '@/app/lib/events';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { toast } from 'react-hot-toast';
-import { joinEvent, leaveEvent, Event } from '@/app/lib/events';
 import { 
   UserPlus, 
   UserMinus, 
@@ -41,12 +42,22 @@ export default function JoinEventButton({
   const [isLoading, setIsLoading] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
-  const isHost = user && (
-    (typeof event.hostId === 'object' && event.hostId._id === user._id) ||
+  // Early return if user is not available
+  if (!user) {
+    return (
+      <Button variant="outline" size={size} className={className} disabled>
+        <UserPlus className="w-4 h-4 mr-2" />
+        Login to Join
+      </Button>
+    );
+  }
+
+  const isHost = user?._id && (
+    (typeof event.hostId === 'object' && event.hostId?._id === user._id) ||
     (typeof event.hostId === 'string' && event.hostId === user._id)
   );
   
-  const isJoined = user && event.participants.includes(user._id);
+  const isJoined = user?._id && event.participants.includes(user._id);
   const isFull = event.currentParticipants >= event.maxParticipants;
   const isPastEvent = new Date(event.date) < new Date();
   const isPaidEvent = event.price > 0;
@@ -85,7 +96,7 @@ export default function JoinEventButton({
   const performJoin = async () => {
     setIsLoading(true);
     try {
-      const response = await joinEvent(event._id);
+      const response = await joinEventAction(event._id);
       
       toast.success(response.message);
       onJoinSuccess?.(response);
@@ -104,7 +115,7 @@ export default function JoinEventButton({
 
     setIsLoading(true);
     try {
-      const response = await leaveEvent(event._id);
+      const response = await leaveEventAction(event._id);
       
       toast.success('Successfully left the event');
       onLeaveSuccess?.(response);

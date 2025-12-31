@@ -6,24 +6,9 @@ import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { AlertCircle, ArrowLeft, Upload, Plus, X, MapPin, Calendar, Users, DollarSign } from 'lucide-react';
+import { hasPermission } from '@/types/auth';
 import api from '@/app/lib/api';
-import {
-  Calendar,
-  MapPin,
-  Users,
-  DollarSign,
-  ArrowLeft,
-  Upload,
-  Plus,
-  X,
-  Music,
-  Gamepad2,
-  Dumbbell,
-  BookOpen,
-  Coffee,
-  Camera,
-  Plane
-} from 'lucide-react';
 
 export default function CreateEventPage() {
   const { user } = useAuth();
@@ -50,6 +35,8 @@ export default function CreateEventPage() {
   const [newRequirement, setNewRequirement] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [serverErrors, setServerErrors] = useState<string[]>([]);
 
   const eventCategories = [
     { id: 'technology', name: 'Technology' },
@@ -114,14 +101,20 @@ export default function CreateEventPage() {
 
     if (!formData.venue.trim()) {
       newErrors.venue = 'Venue is required';
+    } else if (formData.venue.trim().length < 2 || formData.venue.trim().length > 100) {
+      newErrors.venue = 'Venue name must be between 2 and 100 characters';
     }
 
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required';
+    } else if (formData.address.trim().length < 5 || formData.address.trim().length > 200) {
+      newErrors.address = 'Address must be between 5 and 200 characters';
     }
 
     if (!formData.city.trim()) {
       newErrors.city = 'City is required';
+    } else if (formData.city.trim().length < 2 || formData.city.trim().length > 50) {
+      newErrors.city = 'City must be between 2 and 50 characters';
     }
 
     if (formData.maxParticipants < 1) {
@@ -191,25 +184,57 @@ export default function CreateEventPage() {
         duration: formData.duration,
         price: formData.price,
         maxParticipants: formData.maxParticipants,
-        location: `${formData.venue}, ${formData.address}, ${formData.city}`,
+        location: {
+          venue: formData.venue,
+          address: formData.address,
+          city: formData.city
+        },
         tags: formData.tags,
-        requirements: formData.requirements
+        requirements: formData.requirements,
+        image: '', // Required field, empty for now
+        images: [], // Required field, empty array for now
+        status: 'active', // Required field, default to active
+        isPublic: true, // Required field, default to public
+        currentParticipants: 0, // Required field, starts at 0
+        participants: [], // Required field, empty array initially
+        waitingList: [] // Required field, empty array initially
       };
 
       console.log('Creating event with data:', eventData);
 
-      const response = await api.post('/events', eventData);
-      console.log('Event created successfully:', response.data);
+      try {
+        const response = await api.post('/events', eventData);
+        console.log('Event created successfully:', response.data);
+      } catch (apiError: any) {
+        console.error('API Error Details:', {
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          headers: apiError.response?.headers,
+          config: {
+            url: apiError.config?.url,
+            method: apiError.config?.method,
+            data: apiError.config?.data
+          }
+        });
+        throw apiError;
+      }
 
       // Show success message
-      alert('Event created successfully!');
-      
-      // Redirect to events page after successful creation
-      router.push('/events');
+      router.push('/events?success=event-created');
     } catch (error: any) {
       console.error('Failed to create event:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create event. Please try again.';
-      alert(errorMessage);
+      
+      // Handle validation errors from server
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat();
+        setServerErrors(errorMessages as string[]);
+        setShowErrorModal(true);
+      } else {
+        const errorMessage = error.response?.data?.message || 'Failed to create event. Please try again.';
+        setServerErrors([errorMessage]);
+        setShowErrorModal(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -218,15 +243,31 @@ export default function CreateEventPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Please log in to create an event</div>
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to create an event</p>
+          <Button onClick={() => router.push('/login')}>
+            Go to Login
+          </Button>
+        </div>
       </div>
     );
   }
 
-  if (user.role !== 'host' && user.role !== 'admin') {
+  if (!hasPermission(user, 'createEvents')) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">You need to be a host to create events</div>
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-6">
+            Only hosts can create events. You need to be approved as a host to create events.
+          </p>
+          <Button onClick={() => router.push('/events')}>
+            Browse Events
+          </Button>
+        </div>
       </div>
     );
   }
@@ -625,6 +666,37 @@ export default function CreateEventPage() {
             </div>
           </div>
         </form>
+        
+        {/* Error Modal */}
+        {showErrorModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center mb-4">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">Validation Error</h3>
+              </div>
+              <div className="mb-6">
+                <p className="text-gray-600 mb-3">Please fix the following errors:</p>
+                <ul className="space-y-2">
+                  {serverErrors.map((error, index) => (
+                    <li key={index} className="text-sm text-red-600 flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setShowErrorModal(false)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -36,15 +36,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`} suppressHydrationWarning>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#10b981" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50`} suppressHydrationWarning>
         <ClientLayout>
           <AuthProvider>
             <Navbar />
             <main className="flex-1">
-              {children}
+              <div className="w-full">
+                {children}
+              </div>
             </main>
             <Footer />
-            <Toaster position="top-right" />
+            <Toaster position="top-right" 
+              toastOptions={{
+                className: 'backdrop-blur-md bg-white/90 border border-gray-200 shadow-xl',
+                duration: 4000,
+              }} 
+            />
           </AuthProvider>
         </ClientLayout>
       </body>

@@ -4,67 +4,61 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { useAuth } from '@/app/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import PermissionGuard from '@/components/auth/PermissionGuard';
 import api from '@/app/lib/api';
+import AdminSidebar from '../components/AdminSidebar';
+import { toast } from 'react-hot-toast';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useRouter } from 'next/navigation';
 import {
   Users,
   Calendar,
   DollarSign,
   TrendingUp,
-  Search,
-  Filter,
-  MoreHorizontal,
-  Shield,
-  UserCheck,
-  UserX,
-  Eye,
-  Ban,
-  CheckCircle
+  Menu,
+  Shield
 } from 'lucide-react';
-import { getRoleDisplayName, getRoleBadgeColor } from '@/types/auth';
 
-interface User {
-  _id: string;
-  fullName: string;
-  email: string;
-  role: 'user' | 'host' | 'admin';
-  isVerified: boolean;
-  createdAt: string;
-  profileImage?: string;
-  totalEvents?: number;
-  totalSpent?: number;
-  totalEarned?: number;
+
+interface ChartData {
+  [key: string]: any;
+  name: string;
+  value: number;
+}
+
+interface MonthlyData {
+  month: string;
+  users: number;
+  events: number;
 }
 
 interface AdminStats {
   totalUsers: number;
-  totalHosts: number;
   totalEvents: number;
   totalRevenue: number;
   pendingApprovals: number;
   activeUsers: number;
+  totalHosts?: number;
 }
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
+  const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Always true - sidebar always visible
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
-    totalHosts: 0,
     totalEvents: 0,
     totalRevenue: 0,
     pendingApprovals: 0,
     activeUsers: 0
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+
+  // Chart data
+  const [eventStatusData, setEventStatusData] = useState<ChartData[]>([]);
+  const [userRoleData, setUserRoleData] = useState<ChartData[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
 
   // Fetch users and stats from API
   useEffect(() => {
@@ -72,16 +66,41 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         
-        // Fetch all users
-        const usersResponse = await api.get('/admin/users');
-        setUsers(usersResponse.data.data || []);
-        
         // Fetch admin stats
-        const statsResponse = await api.get('/admin/stats');
-        setStats(statsResponse.data.data || stats);
+        try {
+          const statsResponse = await api.get('/admin/stats');
+          const statsData = statsResponse.data?.data || {};
+          setStats({
+            totalUsers: statsData.totalUsers || 0,
+            totalEvents: statsData.totalEvents || 0,
+            totalRevenue: statsData.totalRevenue || 0,
+            pendingApprovals: statsData.pendingApprovals || 0,
+            activeUsers: statsData.activeUsers || 0
+          });
+
+          // Process chart data
+          const eventStatus = [
+            { name: 'Active Events', value: statsData.activeEvents || 0 },
+            { name: 'Completed Events', value: statsData.completedEvents || 0 }
+          ];
+          setEventStatusData(eventStatus);
+
+          // Process user role data for chart
+          const roleData = [
+            { name: 'Users', value: statsData.totalUsers || 0 },
+            { name: 'Hosts', value: statsData.totalHosts || 0 },
+            { name: 'Admins', value: statsData.totalAdmins || 0 }
+          ];
+          setUserRoleData(roleData);
+
+        } catch (statsError: any) {
+          console.error('Error fetching stats:', statsError);
+          toast.error('Failed to load dashboard stats');
+        }
         
       } catch (error) {
-        console.error('Error fetching admin data:', error);
+        console.error('Error in fetchData:', error);
+        toast.error('Failed to load admin data');
       } finally {
         setLoading(false);
       }
@@ -90,262 +109,190 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  const filteredUsers = users.filter((userItem: User) => {
-    const matchesSearch = userItem.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         userItem.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || userItem.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  const handleUserAction = async (userId: string, action: string) => {
-    try {
-      switch (action) {
-        case 'verify':
-          await api.patch(`/admin/users/${userId}/verify`);
-          // Refresh users list
-          const usersResponse = await api.get('/admin/users');
-          setUsers(usersResponse.data.data || []);
-          break;
-        case 'ban':
-          await api.patch(`/admin/users/${userId}/ban`);
-          // Refresh users list
-          const banResponse = await api.get('/admin/users');
-          setUsers(banResponse.data.data || []);
-          break;
-        case 'view':
-          // Navigate to user details page or open modal
-          console.log(`View user ${userId}`);
-          break;
-        default:
-          console.log(`Unknown action: ${action}`);
-      }
-    } catch (error) {
-      console.error(`Error performing ${action} on user ${userId}:`, error);
-    }
-  };
 
   return (
     <ProtectedRoute requiredRole="admin">
       <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-8 px-4">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-            <p className="text-gray-600">Manage users, events, and system settings</p>
+        <div className="flex">
+          {/* Sidebar - Within main content, no footer overlap */}
+          <div className="hidden lg:block w-64 bg-white shadow-xl border-r border-gray-200 flex-shrink-0">
+            <AdminSidebar 
+              isOpen={true} 
+              onClose={() => {}} 
+            />
           </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-2xl font-bold animate-pulse">Loading...</div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">
-                      +{stats.activeUsers} active this month
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Hosts</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-2xl font-bold animate-pulse">Loading...</div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">{stats.totalHosts}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {stats.pendingApprovals} pending approval
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-2xl font-bold animate-pulse">Loading...</div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">{stats.totalEvents}</div>
-                    <p className="text-xs text-muted-foreground">
-                      +15% from last month
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-2xl font-bold animate-pulse">Loading...</div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">
-                      +22% from last month
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Users Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                User Management
-              </CardTitle>
-              <CardDescription>
-                Manage all users and their permissions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Filters */}
-              <div className="flex gap-4 mb-6">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      placeholder="Search users..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="user">Users</SelectItem>
-                    <SelectItem value="host">Hosts</SelectItem>
-                    <SelectItem value="admin">Admins</SelectItem>
-                  </SelectContent>
-                </Select>
+          
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col">
+            {/* Mobile Header */}
+            <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(true)}
+                className="p-2"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              <h1 className="text-lg font-semibold text-gray-900">Admin Dashboard</h1>
+              <div className="w-8"></div>
+            </div>
+            
+            {/* Desktop Header */}
+            <div className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+              <div className="max-w-7xl mx-auto">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-sm sm:text-base text-gray-600">Manage users, events, and system settings</p>
               </div>
-
-              {/* Users Table */}
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                    <p className="text-gray-500">Loading users...</p>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-auto p-4 sm:p-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <Card className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Users className="h-4 w-4 text-blue-600" />
                   </div>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Events</TableHead>
-                      <TableHead>Revenue</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((userItem: User) => (
-                      <TableRow key={userItem._id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={userItem.profileImage} />
-                              <AvatarFallback>
-                                {userItem.fullName.split(' ').map((n: string) => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{userItem.fullName}</div>
-                              <div className="text-sm text-gray-500">{userItem.email}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getRoleBadgeColor(userItem.role)}>
-                            {getRoleDisplayName(userItem.role)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {userItem.isVerified ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full bg-yellow-500" />
-                            )}
-                            <span className="text-sm">
-                              {userItem.isVerified ? 'Verified' : 'Pending'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{userItem.totalEvents || 0}</TableCell>
-                        <TableCell>
-                          ${userItem.totalEarned || userItem.totalSpent || 0}
-                        </TableCell>
-                        <TableCell>{new Date(userItem.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <PermissionGuard permission="manageUsers">
-                            <div className="flex items-center gap-2">
-                              {!userItem.isVerified && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleUserAction(userItem._id, 'verify')}
-                                >
-                                  <UserCheck className="w-4 h-4" />
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUserAction(userItem._id, 'view')}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUserAction(userItem._id, 'ban')}
-                              >
-                                <Ban className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </PermissionGuard>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-2xl font-bold animate-pulse text-gray-300">...</div>
+                  ) : (
+                    <>
+                      <div className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalUsers.toLocaleString()}</div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        +{stats.activeUsers} active this month
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Total Hosts</CardTitle>
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Shield className="h-4 w-4 text-purple-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-2xl font-bold animate-pulse text-gray-300">...</div>
+                  ) : (
+                    <>
+                      <div className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalHosts}</div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {stats.pendingApprovals} pending approval
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Total Events</CardTitle>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-2xl font-bold animate-pulse text-gray-300">...</div>
+                  ) : (
+                    <>
+                      <div className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalEvents}</div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        +15% from last month
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Revenue</CardTitle>
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <DollarSign className="h-4 w-4 text-yellow-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-2xl font-bold animate-pulse text-gray-300">...</div>
+                  ) : (
+                    <>
+                      <div className="text-2xl sm:text-3xl font-bold text-gray-900">${(stats.totalRevenue || 0).toLocaleString()}</div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        +22% from last month
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 sm:mb-8">
+              {/* Event Status Chart */}
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    Event Status Overview
+                  </CardTitle>
+                  <CardDescription>Distribution of active and completed events</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={eventStatusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        <Cell fill="#3b82f6" />
+                        <Cell fill="#10b981" />
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* User Roles Chart */}
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-purple-600" />
+                    User Role Distribution
+                  </CardTitle>
+                  <CardDescription>Breakdown of users by role</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={userRoleData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#8b5cf6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            </div>
+          </div>
         </div>
       </div>
     </ProtectedRoute>

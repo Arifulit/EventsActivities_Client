@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
+import { hasPermission } from '@/types/auth';
 import {
   Calendar,
   Users,
@@ -19,7 +20,9 @@ import {
   Shield,
   Briefcase,
   Home,
-  Bell
+  Bell,
+  AlertTriangle,
+  Crown
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -53,30 +56,41 @@ export default function Navbar() {
   const getNavigation = () => {
     if (!user) {
       return [
-        { name: 'Home', href: '/', icon: Home },
-        { name: 'Events', href: '/events', icon: Calendar },
-        { name: 'Become Host', href: '/become-host', icon: Briefcase },
+        { name: 'Explore Events', href: '/events', icon: Calendar },
+        { name: 'Become a Host', href: '/become-host', icon: Briefcase },
       ];
     }
 
-    const baseNav = [
-      { name: 'Dashboard', href: '/dashboard', icon: Home },
-      { name: 'Events', href: '/events', icon: Calendar },
-    ];
-
     if (user.role === 'user') {
-      baseNav.push({ name: 'My Events', href: '/my-events', icon: Users });
-    } else if (user.role === 'host') {
-      baseNav.push({ name: 'My Events', href: '/my-events', icon: Calendar });
-    } else if (user.role === 'admin') {
-      baseNav.push(
-        { name: 'Admin', href: '/admin/dashboard', icon: Shield },
-        { name: 'Users', href: '/admin/users', icon: Users },
-        { name: 'Events', href: '/admin/events', icon: Calendar }
-      );
+      return [
+        { name: 'Explore Events', href: '/events', icon: Calendar },
+        { name: 'User Dashboard', href: '/user/dashboard', icon: Home },
+        { name: 'My Events', href: '/user/events/joined', icon: Calendar },
+        { name: 'Profile', href: `/profile/${user._id}`, icon: User },
+      ];
     }
 
-    return baseNav;
+    if (user.role === 'host') {
+      return [
+        { name: 'Explore Events', href: '/events', icon: Calendar },
+        { name: 'Host Dashboard', href: '/host/dashboard', icon: Crown },
+        { name: 'My Events', href: '/host/events', icon: Calendar },
+        { name: 'Profile', href: `/profile/${user._id}`, icon: User },
+      ];
+    }
+
+    if (user.role === 'admin') {
+      return [
+        { name: 'Admin Dashboard', href: '/admin/dashboard', icon: Shield },
+        // { name: 'Manage Users', href: '/admin/users', icon: Users },
+        { name: 'Manage Hosts', href: '/admin/hosts', icon: Briefcase },
+        { name: 'Manage Events', href: '/admin/events', icon: Calendar },
+        { name: 'Moderate Content', href: '/admin/moderate', icon: AlertTriangle },
+        { name: 'Profile', href: `/profile/${user._id}`, icon: User },
+      ];
+    }
+
+    return [];
   };
 
   const navigation = getNavigation();
@@ -85,157 +99,99 @@ export default function Navbar() {
   return (
     <nav className={`sticky top-0 z-50 transition-all duration-300 ${
       isScrolled 
-        ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-100' 
-        : 'bg-white/80 backdrop-blur border-b border-gray-200/50'
+        ? 'bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md shadow-2xl border-b border-slate-700/50' 
+        : 'bg-gradient-to-r from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur border-b border-slate-700/30'
     }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+        <div className="h-14 sm:h-16 flex items-center justify-between">
           
           {/* Logo */}
-          <Link href="/" className="group flex items-center gap-3">
+          <Link href="/" className="group flex items-center gap-2 sm:gap-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                <Users className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/25 transition-all duration-300 group-hover:scale-105">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-emerald-400 rounded-full animate-pulse"></div>
             </div>
-            <div>
-              <span className="text-xl font-bold tracking-tight text-gray-900 group-hover:text-blue-600 transition-colors">
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-xl font-bold text-white group-hover:text-emerald-400 transition-colors duration-300">
                 EventHub
               </span>
-              <div className="text-xs text-gray-500 hidden sm:block">Discover Amazing Events</div>
+              <span className="text-xs text-slate-400 group-hover:text-emerald-300 transition-colors duration-300 hidden sm:block">
+                Discover Amazing Events
+              </span>
             </div>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive(item.href)
-                    ? 'bg-blue-50 text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/20 border border-emerald-500/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
-                {item.name}
+                <span className="hidden lg:inline">{item.name}</span>
+                <span className="lg:hidden">{item.name.split(' ')[0]}</span>
               </Link>
             ))}
           </div>
 
           {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2 sm:gap-3">
             {/* Search */}
-            <Button variant="ghost" size="sm" className="hover:bg-gray-100">
+            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md">
               <Search className="w-4 h-4" />
+              <span className="hidden xl:inline ml-2">Search</span>
             </Button>
 
             {/* Notifications */}
-            {user && (
-              <Button variant="ghost" size="sm" className="relative hover:bg-gray-100">
-                <Bell className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </Button>
-            )}
+            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md relative">
+              <Bell className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+            </Button>
 
             {user ? (
               <>
                 {/* Create Event Button - Only for hosts */}
                 {user.role === 'host' && (
                   <Link href="/events/create">
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Event
+                    <Button size="sm" className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">
+                      <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Create Event</span>
+                      <span className="sm:hidden">Create</span>
                     </Button>
                   </Link>
                 )}
 
-                {/* Profile Dropdown */}
-                <div className="relative" ref={profileRef}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-2 hover:bg-gray-50 border-gray-200"
-                  >
-                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                      <User className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="font-medium">{user.fullName?.split(' ')[0]}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${
-                      profileOpen ? 'rotate-180' : ''
-                    }`} />
-                  </Button>
-
-                  {profileOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
-                      {/* User Info */}
-                      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
-                        <div className="font-medium text-gray-900">{user.fullName}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                        <div className="text-xs text-blue-600 mt-1 capitalize font-medium">{user.role}</div>
-                      </div>
-                      
-                      {/* Menu Items */}
-                      <div className="py-2">
-                        <Link
-                          href={`/profile/${user._id}`}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setProfileOpen(false)}
-                        >
-                          <User className="w-4 h-4 text-gray-400" />
-                          <span>Profile</span>
-                        </Link>
-                        
-                        <Link
-                          href="/settings"
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setProfileOpen(false)}
-                        >
-                          <Settings className="w-4 h-4 text-gray-400" />
-                          <span>Settings</span>
-                        </Link>
-
-                        {user.role === 'host' && (
-                          <Link
-                            href="/my-events"
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            onClick={() => setProfileOpen(false)}
-                          >
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span>My Events</span>
-                          </Link>
-                        )}
-                      </div>
-
-                      <div className="border-t border-gray-100">
-                        <button
-                          onClick={() => {
-                            logout();
-                            setProfileOpen(false);
-                          }}
-                          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>Logout</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* Logout Button */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={logout}
+                  className="flex items-center gap-2 text-slate-300 border-slate-600 hover:bg-slate-700/50 hover:text-white hover:border-slate-500 hover:shadow-md transition-all duration-200"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </Button>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Link href="/login">
-                  <Button variant="outline" size="sm" className="hover:bg-gray-50 border-gray-200">
-                    Sign In
+                  <Button variant="outline" size="sm" className="text-slate-300 border-slate-600 hover:bg-slate-700/50 hover:text-white hover:border-slate-500 hover:shadow-md transition-all duration-200">
+                    <span className="hidden sm:inline">Login</span>
+                    <span className="sm:hidden">Sign In</span>
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200">
-                    Get Started
+                  <Button size="sm" className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">
+                    <span className="hidden sm:inline">Register</span>
+                    <span className="sm:hidden">Sign Up</span>
                   </Button>
                 </Link>
               </div>
@@ -246,7 +202,7 @@ export default function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden hover:bg-gray-100"
+            className="xl:hidden text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md transition-all duration-200"
             onClick={() => setOpen(!open)}
           >
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -256,14 +212,14 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {open && (
-        <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md">
-          <div className="px-4 py-4 space-y-2">
+        <div className="xl:hidden border-t border-slate-700/50 bg-gradient-to-b from-slate-900/95 to-slate-800/95 backdrop-blur-md">
+          <div className="px-3 sm:px-4 py-4 space-y-2 max-h-[70vh] overflow-y-auto">
             {/* User Info */}
             {user && (
-              <div className="px-3 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4">
-                <div className="font-medium text-gray-900">{user.fullName}</div>
-                <div className="text-sm text-gray-500">{user.email}</div>
-                <div className="text-xs text-blue-600 mt-1 capitalize font-medium">{user.role}</div>
+              <div className="px-3 py-3 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg mb-4 border border-emerald-500/20">
+                <div className="font-medium text-white">{user.fullName}</div>
+                <div className="text-sm text-slate-300">{user.email}</div>
+                <div className="text-xs text-emerald-400 mt-1 capitalize font-medium">{user.role}</div>
               </div>
             )}
 
@@ -272,10 +228,10 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive(item.href)
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/20 border border-emerald-500/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md'
                 }`}
                 onClick={() => setOpen(false)}
               >
@@ -284,35 +240,21 @@ export default function Navbar() {
               </Link>
             ))}
 
-            <div className="pt-4 border-t border-gray-200 space-y-3">
+            <div className="pt-4 border-t border-slate-700/50 space-y-3">
               {user ? (
                 <>
                   {user.role === 'host' && (
                     <Link href="/events/create" onClick={() => setOpen(false)}>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      <Button className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">
                         <Plus className="w-4 h-4 mr-2" />
                         Create Event
                       </Button>
                     </Link>
                   )}
                   
-                  <Link href={`/profile/${user._id}`} onClick={() => setOpen(false)}>
-                    <Button variant="outline" className="w-full justify-start">
-                      <User className="w-4 h-4 mr-2" />
-                      Profile
-                    </Button>
-                  </Link>
-
-                  <Link href="/settings" onClick={() => setOpen(false)}>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Button>
-                  </Link>
-
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-red-600 hover:bg-red-50"
+                    className="w-full justify-start text-slate-300 border-slate-600 hover:bg-slate-700/50 hover:text-white hover:border-slate-500 hover:shadow-md transition-all duration-200"
                     onClick={() => {
                       logout();
                       setOpen(false);
@@ -325,10 +267,10 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link href="/login" onClick={() => setOpen(false)}>
-                    <Button variant="outline" className="w-full">Sign In</Button>
+                    <Button variant="outline" className="w-full text-slate-300 border-slate-600 hover:bg-slate-700/50 hover:text-white hover:border-slate-500 hover:shadow-md transition-all duration-200">Login</Button>
                   </Link>
                   <Link href="/register" onClick={() => setOpen(false)}>
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">Get Started</Button>
+                    <Button className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">Register</Button>
                   </Link>
                 </>
               )}

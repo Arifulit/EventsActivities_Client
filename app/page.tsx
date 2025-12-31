@@ -226,10 +226,14 @@ export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // লগইন থাকলেও হোম পেজে কোনো redirect করব না
+  // Authentication logic for home page
   useEffect(() => {
-    if (!loading && user) {
-      // কোনো কাজ না করলেই ভালো (হোম পেজে থাকবে)
+    if (!loading) {
+      if (user) {
+        // If user is logged in, redirect to dashboard
+        router.push('/dashboard');
+      }
+      // If user is not logged in, show home page (landing page)
     }
   }, [user, loading, router]);
 

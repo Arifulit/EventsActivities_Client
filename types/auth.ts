@@ -125,14 +125,14 @@ export const rolePermissions: Record<UserRole, Permission> = {
       editOwnProfile: true,
       viewOwnBookings: true,
       
-      // Host permissions
-      createEvents: true,
-      editOwnEvents: true,
-      deleteOwnEvents: true,
+      // Host permissions - Admins cannot create events, only manage them
+      createEvents: false,
+      editOwnEvents: false,
+      deleteOwnEvents: false,
       viewOwnEventParticipants: true,
-      manageOwnEventBookings: true,
-      receivePayments: true,
-      viewOwnEarnings: true,
+      manageOwnEventBookings: false,
+      receivePayments: false,
+      viewOwnEarnings: false,
       
       // Admin permissions
       manageUsers: true,

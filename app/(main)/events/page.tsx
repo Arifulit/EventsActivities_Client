@@ -164,62 +164,25 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white">
-        <div className="container mx-auto py-16 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="flex justify-center mb-6">
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
-                <Sparkles className="w-8 h-8" />
-              </div>
-            </div>
-            <h1 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-green-100">
-              Discover Amazing Events
-            </h1>
-            <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
-              Find and join exciting events happening around you. Connect with your community and create unforgettable memories.
-            </p>
-            
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <div className="text-2xl font-bold">{totalEvents}</div>
-                <div className="text-sm text-green-100">Total Events</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <div className="text-2xl font-bold">{upcomingEvents}</div>
-                <div className="text-sm text-green-100">Upcoming</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <div className="text-2xl font-bold">{todayEvents}</div>
-                <div className="text-sm text-green-100">Today</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <div className="text-2xl font-bold">{popularEvents}</div>
-                <div className="text-sm text-green-100">Popular</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto py-8 px-4">
-        {/* Search and Filters */}
-        <Card className="mb-8 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Filter className="w-5 h-5 text-green-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Search & Filter Events</h2>
+     
+      <div className="container mx-auto py-12 px-4">
+        {/* Search and Filters Section */}
+        <Card className="mb-12 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-3 mb-8">
+              <Filter className="w-6 h-6 text-green-600" />
+              <h2 className="text-xl font-bold text-gray-800">Search & Filter Events</h2>
             </div>
             
             <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
                 <div className="lg:col-span-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <Input
                       type="search"
                       placeholder="Search events, venues, tags..."
-                      className="pl-10 h-12 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                      className="pl-12 h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500"
                       value={filters.search}
                       onChange={(e) => handleFilterChange('search', e.target.value)}
                     />
@@ -231,7 +194,7 @@ export default function EventsPage() {
                     value={filters.type}
                     onValueChange={(value) => handleFilterChange('type', value as EventType)}
                   >
-                    <SelectTrigger className="h-12 border-gray-200 focus:border-green-500 focus:ring-green-500">
+                    <SelectTrigger className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500">
                       <SelectValue placeholder="Event Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -249,7 +212,7 @@ export default function EventsPage() {
                 <div>
                   <Input
                     placeholder="City"
-                    className="h-12 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                    className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500"
                     value={filters.location}
                     onChange={(e) => handleFilterChange('location', e.target.value)}
                   />
@@ -260,7 +223,7 @@ export default function EventsPage() {
                     value={filters.status}
                     onValueChange={(value) => handleFilterChange('status', value as EventStatus)}
                   >
-                    <SelectTrigger className="h-12 border-gray-200 focus:border-green-500 focus:ring-green-500">
+                    <SelectTrigger className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -273,16 +236,16 @@ export default function EventsPage() {
                 </div>
               </div>
               
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={resetFilters} 
-                  className="border-gray-200 hover:bg-gray-50"
+                  className="px-6 py-3 border-gray-200 hover:bg-gray-50"
                 >
                   Reset Filters
                 </Button>
-                <div className="flex items-center gap-2 text-sm text-gray-500 ml-auto">
+                <div className="flex items-center gap-2 text-base text-gray-500 ml-auto">
                   <span>{sortedEvents.length} events found</span>
                 </div>
               </div>
@@ -290,29 +253,29 @@ export default function EventsPage() {
           </CardContent>
         </Card>
 
-        {/* Events Grid */}
+        {/* Events Grid Section */}
         {sortedEvents.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="max-w-md mx-auto">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CalendarIcon className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-24">
+            <div className="max-w-lg mx-auto">
+              <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-8">
+                <CalendarIcon className="w-16 h-16 text-gray-400" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">No events found</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">No events found</h3>
+              <p className="text-lg text-gray-600 mb-8">
                 {filters.search || filters.type !== 'all' || filters.location || filters.status !== 'open'
                   ? 'Try adjusting your filters to find more events.'
                   : 'There are no events available at the moment. Check back later!'}
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-4 justify-center">
                 <Button 
                   variant="outline" 
                   onClick={resetFilters}
-                  className="border-gray-200 hover:bg-gray-50"
+                  className="px-8 py-3 border-gray-200 hover:bg-gray-50"
                 >
                   Clear Filters
                 </Button>
                 <Link href="/events/create">
-                  <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                  <Button className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                     Create Event
                   </Button>
                 </Link>
@@ -320,18 +283,23 @@ export default function EventsPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Featured Events */}
+          <div className="space-y-16">
+            {/* Featured Events - Happening Today */}
             {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <Clock className="w-5 h-5 text-red-600" />
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-red-100 rounded-xl">
+                    <Clock className="w-6 h-6 text-red-600" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Happening Today</h2>
-                  <Badge className="bg-red-100 text-red-700">{sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length} events</Badge>
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-bold text-gray-900">Happening Today</h2>
+                    <p className="text-gray-600 mt-1">Events scheduled for today</p>
+                  </div>
+                  <Badge className="bg-red-100 text-red-700 px-4 py-2 text-base font-medium">
+                    {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length} events
+                  </Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).map((event) => (
                     <EventCard
                       key={event._id}
@@ -345,17 +313,22 @@ export default function EventsPage() {
               </div>
             )}
 
-            {/* Popular Events */}
+            {/* Popular Events Section */}
             {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-orange-600" />
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-orange-100 rounded-xl">
+                    <TrendingUp className="w-6 h-6 text-orange-600" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Popular Events</h2>
-                  <Badge className="bg-orange-100 text-orange-700">{sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length} events</Badge>
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-bold text-gray-900">Popular Events</h2>
+                    <p className="text-gray-600 mt-1">Trending events with high attendance</p>
+                  </div>
+                  <Badge className="bg-orange-100 text-orange-700 px-4 py-2 text-base font-medium">
+                    {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length} events
+                  </Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).slice(0, 6).map((event) => (
                     <EventCard
                       key={event._id}
@@ -369,16 +342,21 @@ export default function EventsPage() {
               </div>
             )}
 
-            {/* All Events */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CalendarIcon className="w-5 h-5 text-green-600" />
+            {/* All Events Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <CalendarIcon className="w-6 h-6 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">All Events</h2>
-                <Badge className="bg-green-100 text-green-700">{sortedEvents.length} events</Badge>
+                <div className="flex-1">
+                  <h2 className="text-3xl font-bold text-gray-900">All Events</h2>
+                  <p className="text-gray-600 mt-1">Browse all available events</p>
+                </div>
+                <Badge className="bg-green-100 text-green-700 px-4 py-2 text-base font-medium">
+                  {sortedEvents.length} events
+                </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {sortedEvents.map((event) => (
                   <EventCard
                     key={event._id}

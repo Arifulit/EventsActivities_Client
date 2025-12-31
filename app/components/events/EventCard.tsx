@@ -45,22 +45,32 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
     onUpdate?.(updatedEvent);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = parseISO(dateString);
-    return format(date, 'MMM d, yyyy');
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Date TBD';
+    try {
+      const date = parseISO(dateString);
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
-  const formatTime = (timeString: string) => {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+  const formatTime = (timeString: string | undefined) => {
+    if (!timeString) return 'Time TBD';
+    try {
+      const [hours, minutes] = timeString.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    } catch (error) {
+      return 'Invalid Time';
+    }
   };
 
-  const isUpcoming = new Date(currentEvent.date) > new Date();
-  const isToday = new Date(currentEvent.date).toDateString() === new Date().toDateString();
-  const spotsLeft = currentEvent.maxParticipants - currentEvent.currentParticipants;
+  const isUpcoming = currentEvent.date ? new Date(currentEvent.date) > new Date() : false;
+  const isToday = currentEvent.date ? new Date(currentEvent.date).toDateString() === new Date().toDateString() : false;
+  const spotsLeft = (currentEvent.maxParticipants || 0) - (currentEvent.currentParticipants || 0);
   const isAlmostFull = spotsLeft > 0 && spotsLeft <= 3;
 
   const getCategoryColor = (category: string) => {
@@ -90,7 +100,7 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
   };
 
   const isHost = user && user._id === currentEvent.hostId;
-  const isParticipant = user && currentEvent.participants.includes(user._id);
+  const isParticipant = user && currentEvent.participants?.includes(user._id);
 
   return (
     <Card className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 ${className}`}>
@@ -179,8 +189,12 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
             <MapPin className="w-4 h-4 text-lime-600" />
           </div>
           <div className="flex-1">
-            <div className="font-medium text-gray-700">{currentEvent.location.venue}</div>
-            <div className="text-gray-500 text-xs">{currentEvent.location.address}, {currentEvent.location.city}</div>
+            <div className="font-medium text-gray-700">
+              {currentEvent.location?.venue || 'Venue TBD'}
+            </div>
+            <div className="text-gray-500 text-xs">
+              {currentEvent.location?.address || 'Address TBD'}, {currentEvent.location?.city || 'City TBD'}
+            </div>
           </div>
         </div>
 
@@ -225,19 +239,22 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
         )}
 
         {/* Host info */}
-        {typeof currentEvent.hostId === 'object' && (
+        {currentEvent.hostId && typeof currentEvent.hostId === 'object' && (
           <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
             <Avatar className="h-6 w-6">
               {currentEvent.hostId.profileImage ? (
-                <AvatarImage src={currentEvent.hostId.profileImage} alt={currentEvent.hostId.fullName} />
+                <AvatarImage src={currentEvent.hostId.profileImage} alt={currentEvent.hostId.fullName || 'Host'} />
               ) : (
                 <AvatarFallback className="text-xs bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                  {currentEvent.hostId.fullName.split(' ').map(n => n[0]).join('')}
+                  {currentEvent.hostId.fullName ? 
+                    currentEvent.hostId.fullName.split(' ').map(n => n[0]).join('') : 
+                    'H'
+                  }
                 </AvatarFallback>
               )}
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-700 truncate">{currentEvent.hostId.fullName}</p>
+              <p className="text-xs font-medium text-gray-700 truncate">{currentEvent.hostId.fullName || 'Unknown Host'}</p>
               {currentEvent.hostId.averageRating && (
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-current" />

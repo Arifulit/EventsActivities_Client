@@ -104,15 +104,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    // Remove token from cookies and user from localStorage
-    removeAuthToken();
-    removeUserData();
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
-    setUser(null);
-    toast.success('Logged out successfully');
-    router.push('/');
+  const logout = async () => {
+    try {
+      // Clear all authentication data
+      removeAuthToken();
+      removeUserData();
+      
+      // Clear API headers
+      delete api.defaults.headers.common['Authorization'];
+      
+      // Reset state
+      setToken(null);
+      setUser(null);
+      
+      // Show success message
+      toast.success('Logged out successfully');
+      
+      // Force redirect to login page
+      router.push('/auth/login');
+      
+      // Optional: Clear any other app-specific data
+      if (typeof window !== 'undefined') {
+        // Clear any other localStorage items if needed
+        // sessionStorage.clear();
+        
+        // Force a refresh to ensure all state is cleared
+        // setTimeout(() => {
+        //   window.location.reload();
+        // }, 100);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, try to redirect to login
+      router.push('/auth/login');
+    }
   };
 
   // Role-based helper methods

@@ -80,7 +80,7 @@ export default function RoleBasedNav() {
 
     if (hasPermission('viewAnalytics')) {
       baseItems.push({
-        href: '/admin/admin-dashboard',
+        href: '/admin/dashboard',
         label: 'Analytics',
         icon: <BarChart3 className="w-4 h-4" />,
       });
@@ -88,7 +88,7 @@ export default function RoleBasedNav() {
 
     if (hasPermission('manageUsers')) {
       baseItems.push({
-        href: '/admin/admin-dashboard',
+        href: '/admin/dashboard',
         label: 'Manage Users',
         icon: <Users className="w-4 h-4" />,
         badge: 'Admin',
@@ -97,7 +97,7 @@ export default function RoleBasedNav() {
 
     if (hasPermission('manageEvents')) {
       baseItems.push({
-        href: '/admin/admin-dashboard',
+        href: '/admin/dashboard',
         label: 'Manage Events',
         icon: <Settings className="w-4 h-4" />,
         badge: 'Admin',
@@ -106,7 +106,7 @@ export default function RoleBasedNav() {
 
     if (hasPermission('manageHosts')) {
       baseItems.push({
-        href: '/admin/admin-dashboard',
+        href: '/admin/dashboard',
         label: 'Manage Hosts',
         icon: <Shield className="w-4 h-4" />,
         badge: 'Admin',
