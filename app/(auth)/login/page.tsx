@@ -39,12 +39,26 @@ export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users to appropriate dashboard
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard');
+      if (user.role === 'host') {
+        router.push('/dashboard/host');
+      } else if (user.role === 'admin') {
+        router.push('/dashboard/admin');
+      } else {
+        router.push('/dashboard/user');
+      }
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    // Add smooth scroll behavior
+    document.body.style.scrollBehavior = 'smooth';
+    return () => {
+      document.body.style.scrollBehavior = 'auto';
+    };
+  }, []);
 
   // Show loading while checking authentication
   if (loading) {
@@ -57,14 +71,6 @@ export default function LoginPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    // Add smooth scroll behavior
-    document.body.style.scrollBehavior = 'smooth';
-    return () => {
-      document.body.style.scrollBehavior = 'auto';
-    };
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

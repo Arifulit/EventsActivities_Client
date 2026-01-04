@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import api from '@/app/lib/api';
-import AdminSidebar from '../components/AdminSidebar';
+// import AdminSidebar from '../components/AdminSidebar';
 import { toast } from 'react-hot-toast';
 import {
   Table,
@@ -72,14 +72,14 @@ import {
   Menu,
   AlertTriangle
 } from 'lucide-react';
-import { getRoleDisplayName, getRoleBadgeColor } from '@/types/auth';
-import { changeUserRole, verifyUser } from '@/app/lib/adminActions';
+import { getRoleDisplayName, getRoleBadgeColor, UserRole } from '@/types/auth';
+import { changeUserRole, verifyUser, approveHost, rejectHost } from '@/app/lib/adminActions';
 
 interface User {
   _id: string;
   fullName: string;
   email: string;
-  role: string;
+  role: UserRole;
   isVerified: boolean;
   isActive?: boolean;
   profileImage?: string;
@@ -172,14 +172,22 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, []);
 
-  const filteredUsers = users.filter((userItem: User) => {
-    const matchesSearch = userItem.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         userItem.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || userItem.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    
+    return users.filter((userItem: User) => {
+      if (!userItem || !userItem.fullName || !userItem.email) return false;
+      
+      const matchesSearch = userItem.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           userItem.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === 'all' || userItem.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchTerm, roleFilter]);
 
   const getUserStats = () => {
+    if (!Array.isArray(users)) return { total: 0, admins: 0, hosts: 0, regularUsers: 0, active: 0, verified: 0 };
+    
     const total = users.length;
     const admins = users.filter(u => u.role === 'admin').length;
     const hosts = users.filter(u => u.role === 'host').length;
@@ -190,7 +198,7 @@ export default function AdminUsersPage() {
     return { total, admins, hosts, regularUsers, active, verified };
   };
 
-  const handleUserAction = async (userId: string, action: string, targetRole?: string) => {
+  const handleUserAction = async (userId: string, action: string, targetRole?: 'user' | 'host' | 'admin') => {
     try {
       switch (action) {
         case 'view':
@@ -205,6 +213,20 @@ export default function AdminUsersPage() {
           const usersResponse = await api.get('/admin/users');
           setUsers(usersResponse.data.data || []);
           toast.success('User verified successfully');
+          break;
+        case 'approveHost':
+          await approveHost(userId);
+          // Refresh users list
+          const approveResponse = await api.get('/admin/users');
+          setUsers(approveResponse.data.data || []);
+          toast.success('Host approved successfully');
+          break;
+        case 'rejectHost':
+          await rejectHost(userId);
+          // Refresh users list
+          const rejectResponse = await api.get('/admin/users');
+          setUsers(rejectResponse.data.data || []);
+          toast.success('Host rejected successfully');
           break;
         case 'makeHost':
           await changeUserRole(userId, { role: 'host' });
@@ -240,6 +262,13 @@ export default function AdminUsersPage() {
             return;
           }
           
+          // Validate targetRole is one of the allowed values
+          const validRoles = ['user', 'host', 'admin'] as const;
+          if (!validRoles.includes(targetRole)) {
+            toast.error('Invalid role selected');
+            return;
+          }
+          
           // Find the user to check current role
           const currentUser = users.find(u => u._id === userId);
           if (currentUser && currentUser.role === targetRole) {
@@ -268,12 +297,7 @@ export default function AdminUsersPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="flex">
           {/* Sidebar */}
-          <div className="hidden lg:block w-64 bg-white shadow-xl border-r border-gray-200 flex-shrink-0">
-            <AdminSidebar 
-              isOpen={true} 
-              onClose={() => {}} 
-            />
-          </div>
+      
           
           {/* Main Content */}
           <div className="flex-1 flex flex-col">
@@ -523,19 +547,19 @@ export default function AdminUsersPage() {
                               <div className="text-sm text-gray-600">
                                 <div className="flex items-center space-x-1">
                                   <Crown className="h-4 w-4 text-purple-600" />
-                                  <span>{user.hostedEvents.length} hosted</span>
+                                  <span>{user.hostedEvents?.length || 0} hosted</span>
                                 </div>
                                 <div className="flex items-center space-x-1 mt-1">
                                   <Users className="h-4 w-4 text-blue-600" />
-                                  <span>{user.joinedEvents.length} joined</span>
+                                  <span>{user.joinedEvents?.length || 0} joined</span>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell className="py-4 px-6">
-                              {user.totalReviews > 0 ? (
+                              {(user.totalReviews ?? 0) > 0 ? (
                                 <div className="flex items-center space-x-1">
                                   <Star className="h-4 w-4 text-yellow-500" />
-                                  <span className="text-sm font-medium">{user.averageRating.toFixed(1)}</span>
+                                  <span className="text-sm font-medium">{(user.averageRating ?? 0).toFixed(1)}</span>
                                   <span className="text-xs text-gray-500">({user.totalReviews})</span>
                                 </div>
                               ) : (
@@ -591,6 +615,20 @@ export default function AdminUsersPage() {
                                     </DropdownMenuSubContent>
                                   </DropdownMenuSub>
                                   <DropdownMenuSeparator />
+                                  {/* Host-specific actions */}
+                                  {user.role === 'host' && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => handleUserAction(user._id, 'approveHost')} className="hover:bg-green-50 cursor-pointer">
+                                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                        <span>Approve Host</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleUserAction(user._id, 'rejectHost')} className="hover:bg-red-50 cursor-pointer">
+                                        <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                        <span>Reject Host</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                    </>
+                                  )}
                                   {!user.isVerified && (
                                     <DropdownMenuItem onClick={() => handleUserAction(user._id, 'verify')} className="hover:bg-green-50 cursor-pointer">
                                       <UserCheck className="h-4 w-4 mr-2 text-green-600" />

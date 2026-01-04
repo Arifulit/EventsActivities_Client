@@ -64,8 +64,8 @@ export default function Navbar() {
     if (user.role === 'user') {
       return [
         { name: 'Explore Events', href: '/events', icon: Calendar },
-        { name: 'User Dashboard', href: '/user/dashboard', icon: Home },
-        { name: 'My Events', href: '/user/events/joined', icon: Calendar },
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'My Events', href: '/dashboard/user/my-bookings', icon: Calendar },
         { name: 'Profile', href: `/profile/${user._id}`, icon: User },
       ];
     }
@@ -73,19 +73,17 @@ export default function Navbar() {
     if (user.role === 'host') {
       return [
         { name: 'Explore Events', href: '/events', icon: Calendar },
-        { name: 'Host Dashboard', href: '/host/dashboard', icon: Crown },
-        { name: 'My Events', href: '/host/events', icon: Calendar },
+        { name: 'Dashboard', href: '/dashboard', icon: Crown },
+        { name: 'My Events', href: '/dashboard/host/events', icon: Calendar },
         { name: 'Profile', href: `/profile/${user._id}`, icon: User },
       ];
     }
 
     if (user.role === 'admin') {
       return [
-        { name: 'Admin Dashboard', href: '/admin/dashboard', icon: Shield },
-        // { name: 'Manage Users', href: '/admin/users', icon: Users },
-        { name: 'Manage Hosts', href: '/admin/hosts', icon: Briefcase },
-        { name: 'Manage Events', href: '/admin/events', icon: Calendar },
-        { name: 'Moderate Content', href: '/admin/moderate', icon: AlertTriangle },
+        { name: 'Dashboard', href: '/dashboard', icon: Shield },
+        { name: 'Manage Users', href: '/dashboard/admin/users', icon: Users },
+        { name: 'Manage Events', href: '/dashboard/admin/events', icon: Calendar },
         { name: 'Profile', href: `/profile/${user._id}`, icon: User },
       ];
     }
@@ -97,7 +95,7 @@ export default function Navbar() {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <nav className={`sticky top-0 z-50 transition-all duration-300 ${
+    <nav className={`sticky top-0 z-40 transition-all duration-300 ${
       isScrolled 
         ? 'bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md shadow-2xl border-b border-slate-700/50' 
         : 'bg-gradient-to-r from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur border-b border-slate-700/30'
@@ -145,10 +143,7 @@ export default function Navbar() {
           {/* Desktop Actions */}
           <div className="hidden lg:flex items-center gap-2 sm:gap-3">
             {/* Search */}
-            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md">
-              <Search className="w-4 h-4" />
-              <span className="hidden xl:inline ml-2">Search</span>
-            </Button>
+      
 
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md relative">
@@ -160,7 +155,7 @@ export default function Navbar() {
               <>
                 {/* Create Event Button - Only for hosts */}
                 {user.role === 'host' && (
-                  <Link href="/events/create">
+                  <Link href="/dashboard/host/events/create">
                     <Button size="sm" className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">
                       <Plus className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">Create Event</span>
@@ -244,7 +239,7 @@ export default function Navbar() {
               {user ? (
                 <>
                   {user.role === 'host' && (
-                    <Link href="/events/create" onClick={() => setOpen(false)}>
+                    <Link href="/dashboard/host/events/create" onClick={() => setOpen(false)}>
                       <Button className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 border border-emerald-400/20">
                         <Plus className="w-4 h-4 mr-2" />
                         Create Event

@@ -7,6 +7,11 @@ export interface User {
   role: UserRole;
   profileImage?: string;
   bio?: string;
+  location?: {
+    city: string;
+    country?: string;
+  };
+  interests?: string[];
   averageRating?: number;
   totalReviews?: number;
   isVerified?: boolean;
@@ -50,7 +55,10 @@ export interface RegisterData {
   email: string;
   password: string;
   confirmPassword: string;
-  location: string;
+  location: {
+    city: string;
+    country?: string;
+  };
   role?: 'user' | 'host';
 }
 

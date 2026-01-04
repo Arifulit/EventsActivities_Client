@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Badge } from '@/app/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { 
-  User, 
+  User as UserIcon, 
   MapPin, 
   Mail, 
   Calendar, 
@@ -29,12 +29,13 @@ import { formatDate } from '@/app/lib/utils';
 import { updateUserProfile, UserProfile } from '@/app/lib/users';
 import { toast } from 'react-hot-toast';
 import api from '@/app/lib/api';
+import { User } from '@/types/auth';
 
 export default function AuthMePage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -155,7 +156,7 @@ export default function AuthMePage() {
       case 'host':
         return <Crown className="w-4 h-4" />;
       default:
-        return <User className="w-4 h-4" />;
+        return <UserIcon className="w-4 h-4" />;
     }
   };
 
@@ -213,9 +214,9 @@ export default function AuthMePage() {
               <CardHeader className="text-center">
                 <div className="relative mx-auto w-24 h-24 sm:w-32 sm:h-32">
                   <Avatar className="w-full h-full ring-4 ring-gray-200">
-                    <AvatarImage src={currentUser.profileImage} alt={currentUser.fullName} />
+                    <AvatarImage src={currentUser?.profileImage} alt={currentUser?.fullName || ''} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl font-bold">
-                      {currentUser.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                      {currentUser?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   {isEditing && (
@@ -230,12 +231,12 @@ export default function AuthMePage() {
                     </label>
                   )}
                 </div>
-                <CardTitle className="text-xl sm:text-2xl mt-4">{currentUser.fullName}</CardTitle>
+                <CardTitle className="text-xl sm:text-2xl mt-4">{currentUser?.fullName}</CardTitle>
                 <div className="flex items-center justify-center gap-2 mt-2">
-                  <Badge className={getRoleColor(currentUser.role)}>
+                  <Badge className={getRoleColor(currentUser?.role || 'user')}>
                     <div className="flex items-center gap-1">
-                      {getRoleIcon(currentUser.role)}
-                      <span className="text-xs font-bold uppercase">{currentUser.role}</span>
+                      {getRoleIcon(currentUser?.role || 'user')}
+                      <span className="text-xs font-bold uppercase">{currentUser?.role}</span>
                     </div>
                   </Badge>
                 </div>
@@ -243,17 +244,17 @@ export default function AuthMePage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mail className="w-4 h-4" />
-                  <span className="truncate">{currentUser.email}</span>
+                  <span className="truncate">{currentUser?.email}</span>
                 </div>
-                {currentUser.location && (
+                {currentUser?.location && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <MapPin className="w-4 h-4" />
-                    <span>{currentUser.location.city}, {currentUser.location.country || 'Unknown'}</span>
+                    <span>{currentUser?.location?.city}, {currentUser?.location?.country || 'Unknown'}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Calendar className="w-4 h-4" />
-                  <span>Joined {formatDate(currentUser.createdAt)}</span>
+                  <span>Joined {formatDate(currentUser?.createdAt || '')}</span>
                 </div>
                 
                 {!isEditing ? (
@@ -300,7 +301,7 @@ export default function AuthMePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
+                  <UserIcon className="w-5 h-5" />
                   About
                 </CardTitle>
               </CardHeader>
@@ -345,13 +346,13 @@ export default function AuthMePage() {
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-2">Biography</h3>
                       <p className="text-gray-600 leading-relaxed">
-                        {currentUser.bio || 'No bio added yet'}
+                        {currentUser?.bio || 'No bio added yet'}
                       </p>
                     </div>
-                    {currentUser.location && (
+                    {currentUser?.location && (
                       <div>
                         <h3 className="font-semibold text-gray-900 mb-2">Location</h3>
-                        <p className="text-gray-600">{currentUser.location.city}, {currentUser.location.country || 'Unknown'}</p>
+                        <p className="text-gray-600">{currentUser.location?.city}, {currentUser.location?.country || 'Unknown'}</p>
                       </div>
                     )}
                   </div>
@@ -363,7 +364,7 @@ export default function AuthMePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5" />
+                  <UserIcon className="w-5 h-5" />
                   Interests
                 </CardTitle>
               </CardHeader>
@@ -401,8 +402,8 @@ export default function AuthMePage() {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {currentUser.interests && currentUser.interests.length > 0 ? (
-                      currentUser.interests.map((interest, index) => (
+                    {currentUser?.interests && currentUser.interests.length > 0 ? (
+                      currentUser?.interests.map((interest, index) => (
                         <Badge key={index} variant="secondary">
                           {interest}
                         </Badge>

@@ -2,6 +2,8 @@ export type { User, UserRole, Permission, hasPermission } from '../types/auth';
 export type { RegisterData } from '../types/auth';
 export { rolePermissions, getRoleDisplayName, getRoleBadgeColor } from '../types/auth';
 
+import type { User, UserRole, RegisterData } from '../types/auth';
+
 export interface AuthContextType {
   user: User | null;
   token: string | null;

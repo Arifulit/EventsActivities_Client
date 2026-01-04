@@ -66,9 +66,24 @@ export interface MyEventsResponse {
 
 export const joinEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
+    console.log('Joining event:', eventId);
     const response = await api.post(`/events/${eventId}/join`);
+    console.log('Join event response:', response.data);
     return response.data;
   } catch (error: any) {
+    console.error('Error joining event:', error);
+    
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+    } else if (error.request) {
+      console.error('Request made but no response received:', error.request);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
+    
     throw error;
   }
 };
@@ -103,6 +118,25 @@ export const getEventById = async (eventId: string): Promise<Event> => {
 export const getMyEvents = async (): Promise<MyEventsResponse> => {
   try {
     const response = await api.get('/events/my-events');
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+export const getHostedEvents = async (params?: {
+  type?: string;
+  location?: string;
+  status?: string;
+}): Promise<MyEventsResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.set('type', params.type);
+    if (params?.location) queryParams.set('location', params.location);
+    if (params?.status) queryParams.set('status', params.status);
+    
+    const queryString = queryParams.toString();
+    const response = await api.get(`/events/hosted-events${queryString ? '?' + queryString : ''}`);
     return response.data;
   } catch (error: any) {
     throw error;

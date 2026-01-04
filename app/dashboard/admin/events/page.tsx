@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -11,7 +11,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import api from '@/app/lib/api';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/app/components/ui/dropdown-menu';
-import AdminSidebar from '../components/AdminSidebar';
+// import AdminSidebar from '../components/AdminSidebar';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import {
@@ -159,22 +159,50 @@ export default function AdminEvents() {
   }, []);
 
   // Get unique categories and types for filters
-  const categories = [...new Set(events.map(event => event.category).filter(Boolean))];
-  const types = [...new Set(events.map(event => event.type).filter(Boolean))];
+  const categories = useMemo(() => {
+    if (!Array.isArray(events)) return [];
+    return [...new Set(events.map(event => event.category).filter(Boolean))];
+  }, [events]);
+
+  const types = useMemo(() => {
+    if (!Array.isArray(events)) return [];
+    return [...new Set(events.map(event => event.type).filter(Boolean))];
+  }, [events]);
 
   // Filter events
-  const filteredEvents = events.filter((event) => {
-    const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.location.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.location.city.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredEvents = useMemo(() => {
+    if (!Array.isArray(events)) return [];
     
-    const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter;
-    const matchesType = typeFilter === 'all' || event.type === typeFilter;
+    return events.filter((event) => {
+      if (!event || !event.title || !event.description || !event.location) return false;
+      
+      const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.location?.venue?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.location?.city?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+      const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
+      const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter;
+      const matchesType = typeFilter === 'all' || event.type === typeFilter;
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesType;
-  });
+      return matchesSearch && matchesStatus && matchesCategory && matchesType;
+    });
+  }, [events, searchTerm, statusFilter, categoryFilter, typeFilter]);
+
+  // Helper function for safe event statistics
+  const getEventStats = () => {
+    if (!Array.isArray(events)) return { total: 0, open: 0, draft: 0, cancelled: 0, published: 0 };
+    
+    return {
+      total: events.length,
+      open: events.filter(e => e.status === 'open').length,
+      draft: events.filter(e => e.status === 'draft').length,
+      cancelled: events.filter(e => e.status === 'cancelled').length,
+      published: events.filter(e => e.status === 'published').length
+    };
+  };
+
+  const stats = getEventStats();
 
   const handleEventAction = async (eventId: string, action: string, newStatus?: string) => {
     try {
@@ -188,7 +216,7 @@ export default function AdminEvents() {
         case 'delete':
           if (confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
             await api.delete(`/admin/events/${eventId}`);
-            setEvents(events.filter(event => event._id !== eventId));
+            setEvents(Array.isArray(events) ? events.filter(event => event._id !== eventId) : []);
             toast.success('Event deleted successfully');
           }
           break;
@@ -215,7 +243,7 @@ export default function AdminEvents() {
           }
           
           // Use the status update API endpoint
-          const statusResponse = await api.patch(`/admin/events/${eventId}/status`, { status: newStatus });
+          const statusResponse = await api.put(`/admin/events/${eventId}/status`, { status: newStatus });
           if (statusResponse.data?.success) {
             toast.success(`Event status updated to ${newStatus} successfully`);
             // Refresh events list
@@ -237,12 +265,7 @@ export default function AdminEvents() {
       <div className="min-h-screen bg-gray-50">
         <div className="flex">
           {/* Sidebar */}
-          <div className="hidden lg:block w-64 bg-white shadow-xl border-r border-gray-200 flex-shrink-0">
-            <AdminSidebar 
-              isOpen={true} 
-              onClose={() => {}} 
-            />
-          </div>
+       
           
           {/* Main Content */}
           <div className="flex-1 flex flex-col">
@@ -306,7 +329,7 @@ export default function AdminEvents() {
                     ) : (
                       <>
                         <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                          {events.filter(e => e.status === 'open').length}
+                          {stats.open}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           Currently active
@@ -329,7 +352,7 @@ export default function AdminEvents() {
                     ) : (
                       <>
                         <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                          {events.reduce((sum, event) => sum + event.currentParticipants, 0)}
+                          {Array.isArray(events) ? events.reduce((sum, event) => sum + (event.currentParticipants || 0), 0) : 0}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           Across all events
@@ -352,7 +375,7 @@ export default function AdminEvents() {
                     ) : (
                       <>
                         <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                          {formatCurrency(events.reduce((sum, event) => sum + (event.price * event.currentParticipants), 0))}
+                          {formatCurrency(Array.isArray(events) ? events.reduce((sum, event) => sum + ((event.price || 0) * (event.currentParticipants || 0)), 0) : 0)}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           From all events

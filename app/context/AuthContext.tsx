@@ -72,7 +72,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(token);
       setUser(user);
       toast.success('Login successful!');
-      router.push('/events');
+      
+      // Redirect based on user role
+      switch (user.role) {
+        case 'admin':
+          router.push('/dashboard');
+          break;
+        case 'host':
+          router.push('/dashboard');
+          break;
+        case 'user':
+          router.push('/dashboard');
+          break;
+        default:
+          router.push('/events');
+      }
     } catch (error: any) {
       toast.error(getAuthErrorMessage(error));
       throw error;
@@ -97,7 +111,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(token);
       setUser(user);
       toast.success('Registration successful!');
-      router.push('/events');
+      
+      // Redirect based on user role
+      switch (user.role) {
+        case 'admin':
+          router.push('/dashboard');
+          break;
+        case 'host':
+          router.push('/dashboard');
+          break;
+        case 'user':
+          router.push('/dashboard');
+          break;
+        default:
+          router.push('/events');
+      }
     } catch (error: any) {
       toast.error(getAuthErrorMessage(error));
       throw error;

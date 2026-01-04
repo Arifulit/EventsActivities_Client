@@ -13,12 +13,31 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Log request details for debugging
+  console.log('API Request:', {
+    url: config.url,
+    method: config.method,
+    hasToken: !!token,
+    baseURL: config.baseURL
+  });
+  
   return config;
 });
 
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
+    console.error('API Error:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      method: error.config?.method,
+      data: error.response?.data
+    });
+    
     if (error.response?.status === 401) {
       removeAuthToken();
       removeUserData();
