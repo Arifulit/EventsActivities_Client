@@ -69,8 +69,7 @@ export default function EventPaymentPage() {
       setEvent(mockEvent);
       setFormData(prev => ({
         ...prev,
-        email: user?.email || '',
-        phone: user?.phone || ''
+        email: user?.email || ''
       }));
     } catch (error) {
       console.error('Failed to fetch event details:', error);

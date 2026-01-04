@@ -45,6 +45,17 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  if (!user && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">User not found</h1>
+          <Button onClick={() => router.push('/')}>Go Home</Button>
+        </div>
+      </div>
+    );
+  }
   const [editForm, setEditForm] = useState({
     fullName: '',
     bio: '',
@@ -123,6 +134,8 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
+    if (!user) return;
+    
     setEditForm({
       fullName: user.fullName,
       bio: user.bio || '',
@@ -670,7 +683,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {editForm.interests.map((interest, index) => (
-                        <Badge key={index} variant="secondary" className="cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => handleRemoveInterest(interest)}>
+                        <Badge key={index} variant="secondary" className="cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => removeInterest(interest)}>
                           {interest} <X className="w-3 h-3 ml-1" />
                         </Badge>
                       ))}

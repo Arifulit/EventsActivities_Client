@@ -92,7 +92,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        location: formData.location,
+        location: { city: formData.location },
       });
       // সাকসেস হলে লগইন পেজে রিডাইরেক্ট করতে পারো (যদি চাও)
       // router.push('/login');
