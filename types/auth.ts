@@ -16,6 +16,9 @@ export interface User {
   totalReviews?: number;
   isVerified?: boolean;
   isApproved?: boolean; // For hosts
+  isActive?: boolean;
+  hostedEvents?: string[];
+  joinedEvents?: string[];
   createdAt: string;
   updatedAt: string;
 }

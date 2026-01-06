@@ -4,12 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { getAdminUsers, verifyUser, banUser, unbanUser, AdminUser } from '@/app/lib/admin';
+import { api } from '@/app/lib/api';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  SelectValue,
+} from '@/app/components/ui/dropdown-menu';
 import {
   ArrowLeft,
   User,
@@ -42,6 +54,7 @@ export default function UserDetailsPage() {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [userActivity, setUserActivity] = useState<any>(null);
 
   useEffect(() => {
     // Check if user is admin
@@ -69,6 +82,16 @@ export default function UserDetailsPage() {
       }
       
       setUser(foundUser);
+      
+      // Fetch user activity
+      try {
+        const activityResponse = await api.get(`/admin/users/${userId}/activity`);
+        setUserActivity(activityResponse.data.data);
+      } catch (activityError) {
+        console.error('Failed to fetch user activity:', activityError);
+        // Don't show error for activity, just continue without it
+      }
+      
     } catch (error: any) {
       console.error('Failed to fetch user details:', error);
       toast.error(error.response?.data?.message || 'Failed to load user details');
@@ -85,31 +108,34 @@ export default function UserDetailsPage() {
     try {
       switch (action) {
         case 'verify':
-          const verifyResponse = await verifyUser(user._id);
-          if (verifyResponse.success) {
-            toast.success('User verified successfully');
-            setUser({ ...user, isVerified: true });
-          } else {
-            toast.error(verifyResponse.message || 'Failed to verify user');
-          }
+          await api.post(`/admin/users/${userId}/verify`);
+          toast.success('User verified successfully');
+          setUser({ ...user, isVerified: true });
           break;
         case 'ban':
-          const banResponse = await banUser(user._id);
-          if (banResponse.success) {
-            toast.success('User banned successfully');
-            setUser({ ...user, isActive: false });
-          } else {
-            toast.error(banResponse.message || 'Failed to ban user');
-          }
+          await api.post(`/admin/users/${userId}/ban`);
+          toast.success('User banned successfully');
+          setUser({ ...user, isActive: false });
           break;
         case 'unban':
-          const unbanResponse = await unbanUser(user._id);
-          if (unbanResponse.success) {
-            toast.success('User unbanned successfully');
-            setUser({ ...user, isActive: true });
-          } else {
-            toast.error(unbanResponse.message || 'Failed to unban user');
-          }
+          await api.post(`/admin/users/${userId}/unban`);
+          toast.success('User unbanned successfully');
+          setUser({ ...user, isActive: true });
+          break;
+        case 'suspend':
+          await api.patch(`/admin/users/${userId}/suspend`);
+          toast.success('User suspended successfully');
+          setUser({ ...user, isActive: false });
+          break;
+        case 'reactivate':
+          await api.patch(`/admin/users/${userId}/status`, { status: 'active' });
+          toast.success('User reactivated successfully');
+          setUser({ ...user, isActive: true });
+          break;
+        case 'delete':
+          await api.delete(`/admin/users/${userId}`);
+          toast.success('User deleted successfully');
+          router.push('/admin/users');
           break;
         default:
           console.log(`Unknown action: ${action}`);
@@ -261,6 +287,48 @@ export default function UserDetailsPage() {
                             Verify
                           </Button>
                         )}
+                        {user.role === 'user' && (
+                          <Dropdown>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="hover:bg-gray-50 cursor-pointer">
+                                <Button 
+                                  disabled={isActionLoading}
+                                  className="w-full bg-purple-600 hover:bg-purple-700"
+                                >
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Promote to Host
+                                </Button>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-40 border shadow-lg">
+                                <DropdownMenuItem onClick={() => handleUserAction('changeRole', 'host')} className="hover:bg-purple-50 cursor-pointer">
+                                  <Crown className="h-4 w-4 mr-2 text-purple-600" />
+                                  <span>Host</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuSubContent>
+                            </Dropdown>
+                          </Dropdown>
+                        )}
+                        {user.role === 'host' && (
+                          <Dropdown>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="hover:bg-gray-50 cursor-pointer">
+                                <Button 
+                                  disabled={isActionLoading}
+                                  className="w-full bg-blue-600 hover:bg-blue-700"
+                                >
+                                  <User className="h-4 w-4 mr-2" />
+                                  Convert to User
+                                </Button>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-40 border shadow-lg">
+                                <DropdownMenuItem onClick={() => handleUserAction('changeRole', 'user')} className="hover:bg-blue-50 cursor-pointer">
+                                  <User className="h-4 w-4 mr-2 text-blue-600" />
+                                  <span>User</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuSubContent>
+                            </Dropdown>
+                          </Dropdown>
+                        )}
                         {user.isActive ? (
                           <Button 
                             onClick={() => handleUserAction('ban')} 
@@ -366,7 +434,7 @@ export default function UserDetailsPage() {
                           <Heart className="h-6 w-6 text-red-600" />
                         </div>
                         <div className="text-2xl font-bold text-gray-900">{user.savedEvents.length}</div>
-                        <div className="text-sm text-gray-500">Saved Events</div>
+                        
                       </div>
                     </div>
                   </CardContent>

@@ -11,9 +11,10 @@ import { Badge } from '@/app/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import { Calendar, MapPin, Users, Clock, DollarSign, ArrowLeft, Share2, MessageSquare, Star, ExternalLink, Loader2, User, MessageCircle, CheckCircle2, AlertCircle, CalendarIcon, MapPinIcon, UsersIcon, Heart, Edit, Tag, Info, CalendarCheck, AlertTriangle, UserCheck, Flag } from 'lucide-react';
+import { Calendar, MapPin, Users, Clock, DollarSign, ArrowLeft, Share2, MessageSquare, Star, ExternalLink, Loader2, User, MessageCircle, CheckCircle2, AlertCircle, CalendarIcon, MapPinIcon, UsersIcon, Edit, Tag, Info, CalendarCheck, AlertTriangle, UserCheck, Flag, Award } from 'lucide-react';
 import { getEventById, joinEvent, leaveEvent, Event } from '@/app/lib/events';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import ReviewsList from '@/app/components/reviews/ReviewsList';
 
 export default function EventDetailsPage() {
   const { user: currentUser } = useAuth();
@@ -223,14 +224,6 @@ export default function EventDetailsPage() {
                     >
                       <Share2 className="h-4 w-4" />
                       <span className="sr-only">Share</span>
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      size="icon" 
-                      className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700 border-0 shadow-lg"
-                    >
-                      <Heart className="h-4 w-4" />
-                      <span className="sr-only">Save</span>
                     </Button>
                     {isHost && (
                       <Button 
@@ -457,7 +450,7 @@ export default function EventDetailsPage() {
             
             {/* Tabs */}
             <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger 
                   value="details" 
                   onClick={() => setActiveTab('details')}
@@ -473,6 +466,14 @@ export default function EventDetailsPage() {
                 >
                   <UsersIcon className="h-4 w-4 mr-2" />
                   Participants ({event.participants.length})
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="reviews" 
+                  onClick={() => setActiveTab('reviews')}
+                  className={activeTab === 'reviews' ? 'bg-blue-50 text-blue-700' : ''}
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Reviews
                 </TabsTrigger>
                 <TabsTrigger 
                   value="discussion" 
@@ -630,6 +631,15 @@ export default function EventDetailsPage() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+              
+              <TabsContent value="reviews" className="mt-6">
+                <ReviewsList 
+                  eventId={eventId} 
+                  eventTitle={event.title}
+                  showWriteReview={isJoined && !isPastEvent}
+                  onWriteReview={() => router.push(`/events/${eventId}/reviews`)}
+                />
               </TabsContent>
               
               <TabsContent value="discussion" className="mt-6">
@@ -855,6 +865,18 @@ export default function EventDetailsPage() {
                     <Link href={`/profile/${typeof event.hostId === 'object' ? event.hostId._id : event.hostId}`}>
                       <User className="h-4 w-4 mr-2" />
                       View Profile
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full border-yellow-500 text-yellow-600 hover:bg-yellow-50 font-semibold" asChild>
+                    <Link href={`/events/${eventId}/reviews`}>
+                      <Star className="h-4 w-4 mr-2" />
+                      View Reviews
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full border-green-500 text-green-600 hover:bg-green-50 font-semibold" asChild>
+                    <Link href={`/profile/${typeof event.hostId === 'object' ? event.hostId._id : event.hostId}/reviews`}>
+                      <Award className="h-4 w-4 mr-2" />
+                      Review & Rating
                     </Link>
                   </Button>
                   {!isHost && (

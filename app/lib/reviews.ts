@@ -2,12 +2,23 @@ import api from './api';
 
 export interface Review {
   _id: string;
-  eventId: string;
-  userId: string;
+  userId: {
+    _id: string;
+    fullName: string;
+    profileImage: string;
+  };
+  hostId: {
+    _id: string;
+    fullName: string;
+    profileImage: string;
+  };
+  eventId: {
+    _id: string;
+    title: string;
+    date: string;
+  };
   rating: number;
   comment: string;
-  userName: string;
-  userProfileImage?: string;
   createdAt: string;
   updatedAt: string;
 }

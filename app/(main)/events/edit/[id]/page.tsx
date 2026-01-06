@@ -27,6 +27,7 @@ interface EventData {
   requirements: string;
   tags: string;
   isPublic: boolean;
+  status: 'draft' | 'published' | 'cancelled' | 'completed';
 }
 
 export default function UpdateEventPage() {
@@ -42,10 +43,24 @@ export default function UpdateEventPage() {
         if (response.data.success) {
           const eventData = response.data.data;
           setEvent({
-            ...eventData,
-            requirements: eventData.requirements.join('\n'),
-            tags: eventData.tags.join(','),
-            date: eventData.date.split('T')[0] // Format date for input[type="date"]
+            title: eventData.title || '',
+            description: eventData.description || '',
+            type: eventData.type || 'workshop',
+            category: eventData.category || 'technology',
+            date: eventData.date ? eventData.date.split('T')[0] : '',
+            time: eventData.time || '',
+            duration: eventData.duration || 120,
+            location: {
+              venue: eventData.location?.venue || '',
+              address: eventData.location?.address || '',
+              city: eventData.location?.city || ''
+            },
+            maxParticipants: eventData.maxParticipants || 10,
+            price: eventData.price || 0,
+            requirements: eventData.requirements ? eventData.requirements.join('\n') : '',
+            tags: eventData.tags ? eventData.tags.join(',') : '',
+            isPublic: eventData.isPublic !== false,
+            status: eventData.status || 'draft'
           });
         }
       } catch (error) {
@@ -68,13 +83,21 @@ export default function UpdateEventPage() {
         ...event,
         requirements: event.requirements.split('\n').filter(r => r.trim() !== ''),
         tags: event.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
+        date: event.date ? new Date(event.date).toISOString() : event.date,
+        location: {
+          ...event.location,
+          venue: event.location.venue,
+          address: event.location.address,
+          city: event.location.city
+        }
       };
 
       const response = await api.put(`/events/${id}`, updatedEvent);
       
       if (response.data.success) {
         toast.success('Event updated successfully');
-        router.push(`/events/${id}`);
+        // Redirect to host dashboard events page instead of public event page
+        router.push('/dashboard/host/events');
       }
     } catch (error) {
       console.error('Error updating event:', error);
@@ -318,6 +341,22 @@ export default function UpdateEventPage() {
             onChange={handleChange}
             placeholder="tech, workshop, web-development"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="status">Event Status</Label>
+          <select
+            id="status"
+            name="status"
+            value={event.status}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
         </div>
 
         <div className="flex items-center space-x-2">

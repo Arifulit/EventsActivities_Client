@@ -67,39 +67,61 @@ export interface MyEventsResponse {
 export const joinEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
     console.log('Joining event:', eventId);
+    
+    // Use the API instance with proper authentication
     const response = await api.post(`/events/${eventId}/join`);
     console.log('Join event response:', response.data);
+    
     return response.data;
   } catch (error: any) {
     console.error('Error joining event:', error);
-    
-    // Enhanced error logging
-    if (error.response) {
-      console.error('Response data:', error.response.data);
-      console.error('Response status:', error.response.status);
-      console.error('Response headers:', error.response.headers);
-    } else if (error.request) {
-      console.error('Request made but no response received:', error.request);
-    } else {
-      console.error('Error setting up request:', error.message);
-    }
-    
+    console.error('Error response data:', error.response?.data);
     throw error;
   }
 };
 
 export const leaveEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
+    console.log('Leaving event:', eventId);
+    
+    // Use the API instance with proper authentication
     const response = await api.post(`/events/${eventId}/leave`);
+    console.log('Leave event response:', response.data);
+    
     return response.data;
   } catch (error: any) {
+    console.error('Error leaving event:', error);
+    console.error('Error response data:', error.response?.data);
     throw error;
   }
 };
 
-export const getEvents = async (): Promise<Event[]> => {
+export const getEvents = async (params?: {
+  page?: number;
+  limit?: number;
+  type?: string;
+  status?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  isFree?: boolean;
+  search?: string;
+}): Promise<Event[]> => {
   try {
-    const response = await api.get('/events');
+    const queryParams = new URLSearchParams();
+    
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.location) queryParams.append('location', params.location);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.isFree !== undefined) queryParams.append('isFree', params.isFree.toString());
+    if (params?.search) queryParams.append('search', params.search);
+
+    const queryString = queryParams.toString();
+    const response = await api.get(`/events${queryString ? '?' + queryString : ''}`);
     return response.data.data;
   } catch (error: any) {
     throw error;

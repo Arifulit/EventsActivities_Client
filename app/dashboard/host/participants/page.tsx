@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -23,85 +23,108 @@ import {
   FileText,
   Send,
   Eye,
-  DollarSign
+  DollarSign,
+  Loader2
 } from 'lucide-react';
+import api from '@/app/lib/api';
+import toast from 'react-hot-toast';
 
 export default function HostParticipantsPage() {
-  const [participants] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@email.com',
-      phone: '+1 (555) 123-4567',
-      eventTitle: 'Summer Music Festival 2024',
-      registrationDate: '2024-01-10',
-      status: 'confirmed',
-      ticketNumber: 'TKT-2024-001',
-      price: 45,
-      paymentStatus: 'paid',
-      specialRequests: 'Vegetarian meal option',
-      avatar: '/api/placeholder/40/40'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      email: 'michael.chen@email.com',
-      phone: '+1 (555) 987-6543',
-      eventTitle: 'Summer Music Festival 2024',
-      registrationDate: '2024-01-12',
-      status: 'confirmed',
-      ticketNumber: 'TKT-2024-002',
-      price: 45,
-      paymentStatus: 'paid',
-      specialRequests: 'Wheelchair accessible seating',
-      avatar: '/api/placeholder/40/40'
-    },
-    {
-      id: 3,
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      phone: '+1 (555) 456-7890',
-      eventTitle: 'Tech Innovation Workshop',
-      registrationDate: '2024-01-15',
-      status: 'pending',
-      ticketNumber: 'TKT-2024-003',
-      price: 25,
-      paymentStatus: 'pending',
-      specialRequests: 'None',
-      avatar: '/api/placeholder/40/40'
-    },
-    {
-      id: 4,
-      name: 'Robert Wilson',
-      email: 'robert.wilson@email.com',
-      phone: '+1 (555) 321-6549',
-      eventTitle: 'Food & Wine Festival',
-      registrationDate: '2024-01-08',
-      status: 'confirmed',
-      ticketNumber: 'TKT-2024-004',
-      price: 65,
-      paymentStatus: 'paid',
-      specialRequests: 'Allergic to nuts',
-      avatar: '/api/placeholder/40/40'
-    },
-    {
-      id: 5,
-      name: 'Lisa Anderson',
-      email: 'lisa.anderson@email.com',
-      phone: '+1 (555) 654-3210',
-      eventTitle: 'Art Exhibition: Modern Visions',
-      registrationDate: '2024-01-20',
-      status: 'cancelled',
-      ticketNumber: 'TKT-2024-005',
-      price: 15,
-      paymentStatus: 'refunded',
-      specialRequests: 'Requested refund due to schedule conflict',
-      avatar: '/api/placeholder/40/40'
-    }
-  ]);
-
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [events, setEvents] = useState<any[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState('all');
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 0,
+    totalItems: 0,
+    itemsPerPage: 20,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState('all');
+
+  useEffect(() => {
+    fetchParticipants();
+    fetchEvents();
+  }, [selectedEventId, pagination.currentPage]);
+
+  const fetchParticipants = async () => {
+    try {
+      setIsLoading(true);
+      let url = '/events/participants';
+      
+      if (selectedEventId !== 'all') {
+        url = `/events/${selectedEventId}/participants`;
+      }
+      
+      console.log('Fetching participants from:', url);
+      console.log('Request params:', {
+        page: pagination.currentPage,
+        limit: pagination.itemsPerPage,
+        search: searchTerm
+      });
+      
+      const response = await api.get(url, {
+        params: {
+          page: pagination.currentPage,
+          limit: pagination.itemsPerPage,
+          search: searchTerm
+        }
+      });
+      
+      console.log('API Response:', response);
+      
+      if (response.data.success) {
+        setParticipants(response.data.data || []);
+        setPagination(response.data.pagination || pagination);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch participants - Full error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error response:', error.response);
+      
+      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR') {
+        toast.error('Cannot connect to server. Please ensure the backend is running on port 5000.');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication failed. Please login again.');
+      } else if (error.response?.status === 404) {
+        toast.error('API endpoint not found. Check if the backend routes are properly configured.');
+      } else {
+        toast.error(`Failed to load participants: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchEvents = async () => {
+    try {
+      console.log('Fetching events from:', '/events/my-hosted');
+      const response = await api.get('/events/my-hosted');
+      console.log('Events API Response:', response);
+      
+      if (response.data.success) {
+        setEvents(response.data.data || []);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch events - Full error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error response:', error.response);
+      
+      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR') {
+        toast.error('Cannot connect to server. Please ensure the backend is running on port 5000.');
+      } else if (error.response?.status === 401) {
+        toast.error('Authentication failed. Please login again.');
+      } else if (error.response?.status === 404) {
+        toast.error('Events API endpoint not found. Check if the backend routes are properly configured.');
+      } else {
+        toast.error(`Failed to load events: ${error.message || 'Unknown error'}`);
+      }
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -143,11 +166,12 @@ export default function HostParticipantsPage() {
   };
 
   const filteredParticipants = participants.filter(participant => {
-    const matchesSearch = participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         participant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         participant.ticketNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      (participant.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       participant.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       participant.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesEvent = selectedEvent === 'all' || participant.eventTitle === selectedEvent;
+    const matchesEvent = selectedEventId === 'all' || participant.eventId === selectedEventId;
     
     return matchesSearch && matchesEvent;
   });
@@ -156,17 +180,39 @@ export default function HostParticipantsPage() {
   const pendingParticipants = participants.filter(p => p.status === 'pending');
   const cancelledParticipants = participants.filter(p => p.status === 'cancelled');
 
-  const uniqueEvents = [...new Set(participants.map(p => p.eventTitle))];
-
   const exportParticipants = () => {
     console.log('Exporting participants data...');
-    // Handle export functionality here
+    // TODO: Implement export functionality
+    toast.success('Export feature coming soon!');
   };
 
-  const sendNotification = (participantId: number, message: string) => {
-    console.log('Sending notification to participant:', participantId, message);
-    // Handle notification functionality here
+  const sendNotification = async (participantId: string, message: string) => {
+    try {
+      // TODO: Implement notification API call
+      console.log('Sending notification to participant:', participantId, message);
+      toast.success('Notification sent successfully!');
+    } catch (error) {
+      toast.error('Failed to send notification');
+    }
   };
+
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, currentPage: page }));
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    // Reset to first page when searching
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  if (isLoading && participants.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -258,13 +304,13 @@ export default function HostParticipantsPage() {
             <div className="flex items-center space-x-2">
               <Filter className="w-4 h-4 text-gray-500" />
               <select
-                value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="all">All Events</option>
-                {uniqueEvents.map(event => (
-                  <option key={event} value={event}>{event}</option>
+                {events.map(event => (
+                  <option key={event._id} value={event._id}>{event.title}</option>
                 ))}
               </select>
             </div>
@@ -309,24 +355,34 @@ export default function HostParticipantsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredParticipants.map((participant) => (
-                    <tr key={participant.id} className="hover:bg-gray-50">
+                    <tr key={participant._id || participant.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
                             <UserCheck className="w-4 h-4 text-gray-600" />
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{participant.name}</div>
-                            <div className="text-sm text-gray-500">{participant.email}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {participant.user?.name || 'Unknown'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {participant.user?.email || 'No email'}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{participant.eventTitle}</div>
+                        <div className="text-sm text-gray-900">
+                          {participant.event?.title || 'Unknown Event'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{participant.registrationDate}</div>
-                        <div className="text-xs text-gray-400">{participant.ticketNumber}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
@@ -343,7 +399,11 @@ export default function HostParticipantsPage() {
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => sendNotification(participant._id || participant.id, 'Hello!')}
+                          >
                             <Mail className="w-4 h-4 mr-1" />
                             Contact
                           </Button>
@@ -360,7 +420,7 @@ export default function HostParticipantsPage() {
         <TabsContent value="confirmed" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {confirmedParticipants.map((participant) => (
-              <Card key={participant.id} className="hover:shadow-md transition-all duration-200">
+              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -368,12 +428,18 @@ export default function HostParticipantsPage() {
                         <UserCheck className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{participant.name}</h3>
-                        <p className="text-sm text-gray-500">{participant.email}</p>
+                        <h3 className="font-semibold text-gray-900">
+                          {participant.user?.name || 'Unknown'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {participant.user?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">${participant.price}</p>
+                      <p className="text-lg font-bold text-green-600">
+                        ${participant.amount || participant.price || 0}
+                      </p>
                       {getPaymentBadge(participant.paymentStatus)}
                     </div>
                   </div>
@@ -382,15 +448,21 @@ export default function HostParticipantsPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.eventTitle}</span>
+                      <span className="text-gray-600">
+                        {participant.event?.title || 'Unknown Event'}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.registrationDate}</span>
+                      <span className="text-gray-600">
+                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">Ticket: {participant.ticketNumber}</span>
+                      <span className="text-gray-600">
+                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
+                      </span>
                     </div>
                     {participant.specialRequests && (
                       <div className="flex items-center space-x-2">
@@ -410,7 +482,11 @@ export default function HostParticipantsPage() {
                         Call
                       </Button>
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => sendNotification(participant._id || participant.id, 'Hello!')}
+                    >
                       <Send className="w-4 h-4 mr-1" />
                       Notify
                     </Button>
@@ -424,7 +500,7 @@ export default function HostParticipantsPage() {
         <TabsContent value="pending" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pendingParticipants.map((participant) => (
-              <Card key={participant.id} className="hover:shadow-md transition-all duration-200 border-l-4 border-yellow-400">
+              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200 border-l-4 border-yellow-400">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -432,12 +508,18 @@ export default function HostParticipantsPage() {
                         <Clock className="w-5 h-5 text-yellow-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{participant.name}</h3>
-                        <p className="text-sm text-gray-500">{participant.email}</p>
+                        <h3 className="font-semibold text-gray-900">
+                          {participant.user?.name || 'Unknown'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {participant.user?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-yellow-600">${participant.price}</p>
+                      <p className="text-lg font-bold text-yellow-600">
+                        ${participant.amount || participant.price || 0}
+                      </p>
                       {getPaymentBadge(participant.paymentStatus)}
                     </div>
                   </div>
@@ -446,15 +528,21 @@ export default function HostParticipantsPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.eventTitle}</span>
+                      <span className="text-gray-600">
+                        {participant.event?.title || 'Unknown Event'}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.registrationDate}</span>
+                      <span className="text-gray-600">
+                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">Ticket: {participant.ticketNumber}</span>
+                      <span className="text-gray-600">
+                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t">
@@ -482,7 +570,7 @@ export default function HostParticipantsPage() {
         <TabsContent value="cancelled" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {cancelledParticipants.map((participant) => (
-              <Card key={participant.id} className="hover:shadow-md transition-all duration-200 opacity-75">
+              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200 opacity-75">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -490,12 +578,18 @@ export default function HostParticipantsPage() {
                         <XCircle className="w-5 h-5 text-red-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{participant.name}</h3>
-                        <p className="text-sm text-gray-500">{participant.email}</p>
+                        <h3 className="font-semibold text-gray-900">
+                          {participant.user?.name || 'Unknown'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {participant.user?.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-gray-400">${participant.price}</p>
+                      <p className="text-lg font-bold text-gray-400">
+                        ${participant.amount || participant.price || 0}
+                      </p>
                       {getPaymentBadge(participant.paymentStatus)}
                     </div>
                   </div>
@@ -504,19 +598,27 @@ export default function HostParticipantsPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.eventTitle}</span>
+                      <span className="text-gray-600">
+                        {participant.event?.title || 'Unknown Event'}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{participant.registrationDate}</span>
+                      <span className="text-gray-600">
+                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">Ticket: {participant.ticketNumber}</span>
+                      <span className="text-gray-600">
+                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 text-red-400" />
-                      <span className="text-red-600 text-sm">{participant.specialRequests}</span>
+                      <span className="text-red-600 text-sm">
+                        {participant.specialRequests || 'Cancelled'}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t">
@@ -543,7 +645,7 @@ export default function HostParticipantsPage() {
             <p className="text-gray-600 mb-6">
               No participants match your current filters.
             </p>
-            <Button variant="outline" onClick={() => {setSearchTerm(''); setSelectedEvent('all');}}>
+            <Button variant="outline" onClick={() => {setSearchTerm(''); setSelectedEventId('all');}}>
               Clear Filters
             </Button>
           </CardContent>

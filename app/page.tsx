@@ -200,11 +200,10 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import {
@@ -221,9 +220,39 @@ import {
   Plane,
   ArrowRight
 } from 'lucide-react';
+import api from '@/app/lib/api';
 
-export default function Home() {
+export default function HomePage() {
   const { user, loading } = useAuth();
+  const [platformStats, setPlatformStats] = useState([
+    { number: '0', label: 'Active Users' },
+    { number: '0', label: 'Events Created' },
+    { number: '0', label: 'Cities Covered' },
+    { number: '0.0', label: 'Average Rating' }
+  ]);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Fetch platform stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/platform/stats');
+        const data = response.data.data;
+        setPlatformStats([
+          { number: data.activeUsers?.toLocaleString() || '0', label: 'Active Users' },
+          { number: data.eventsCreated?.toLocaleString() || '0', label: 'Events Created' },
+          { number: data.citiesCovered?.toString() || '0', label: 'Cities Covered' },
+          { number: data.averageRating?.toFixed(1) || '0.0', label: 'Average Rating' }
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch platform stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
   const router = useRouter();
 
   // Authentication logic for home page
@@ -278,12 +307,12 @@ export default function Home() {
     }
   ];
 
-  const stats = [
-    { number: '10K+', label: 'Active Users' },
-    { number: '5K+', label: 'Events Created' },
-    { number: '50+', label: 'Cities Covered' },
-    { number: '4.8', label: 'Average Rating' }
-  ];
+  const stats = statsLoading ? [
+    { number: '...', label: 'Active Users' },
+    { number: '...', label: 'Events Created' },
+    { number: '...', label: 'Cities Covered' },
+    { number: '...', label: 'Average Rating' }
+  ] : platformStats;
 
   return (
     <>
@@ -293,7 +322,7 @@ export default function Home() {
           <div className="text-center">
             <div className="inline-flex items-center bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6 text-white text-sm">
               <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-              10K+ Active Users • Join the Community
+              {statsLoading ? 'Loading...' : `${platformStats[0].number} Active Users • Join the Community`}
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
               Never Experience Events

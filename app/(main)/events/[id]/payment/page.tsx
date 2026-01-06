@@ -50,29 +50,24 @@ export default function EventPaymentPage() {
 
   const fetchEventDetails = async () => {
     try {
-      // Mock data - replace with actual API call
-      const mockEvent = {
-        _id: eventId,
-        name: 'Summer Music Festival',
-        date: '2024-07-15',
-        time: '18:00',
-        location: 'Central Park, New York',
-        joiningFee: 25,
-        currentParticipants: 127,
-        maxParticipants: 500,
-        host: {
-          fullName: 'Music Events Co.',
-          rating: 4.9
-        }
-      };
-
-      setEvent(mockEvent);
+      // Fetch event details from API
+      const response = await fetch(`/api/events/${eventId}`);
+      
+      if (!response.ok) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = await response.json();
+      
+      setEvent(eventData.data);
       setFormData(prev => ({
         ...prev,
         email: user?.email || ''
       }));
     } catch (error) {
       console.error('Failed to fetch event details:', error);
+      // Set event to null to trigger error state
+      setEvent(null);
     } finally {
       setIsLoading(false);
     }
@@ -151,14 +146,32 @@ export default function EventPaymentPage() {
     setIsProcessing(true);
 
     try {
-      // Mock payment processing - replace with actual payment gateway integration
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Redirect to success page
-      router.push(`/events/${eventId}/payment/success`);
-    } catch (error) {
+      // Process payment through actual payment gateway
+      const paymentResponse = await fetch('/api/payments/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId,
+          amount: event.joiningFee,
+          paymentMethod,
+          paymentDetails: formData
+        })
+      });
+      
+      if (!paymentResponse.ok) {
+        const errorData = await paymentResponse.json();
+        throw new Error(errorData.message || 'Payment failed');
+      }
+      
+      const paymentResult = await paymentResponse.json();
+      
+      // Redirect to success page with payment details
+      router.push(`/events/${eventId}/payment/success?paymentId=${paymentResult.paymentId}`);
+    } catch (error: any) {
       console.error('Payment failed:', error);
-      setErrors({ submit: 'Payment failed. Please try again.' });
+      setErrors({ submit: error.message || 'Payment failed. Please try again.' });
     } finally {
       setIsProcessing(false);
     }

@@ -16,18 +16,26 @@ export interface LeaveEventResponse {
 
 export const joinEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
+    console.log('Joining event:', eventId);
     const response = await api.post(`/events/${eventId}/join`);
+    console.log('Event joined successfully:', response.data);
     return response.data;
   } catch (error: any) {
+    console.error('Error joining event:', error);
+    console.error('Error response data:', error.response?.data);
     throw error;
   }
 };
 
 export const leaveEvent = async (eventId: string): Promise<LeaveEventResponse> => {
   try {
+    console.log('Leaving event:', eventId);
     const response = await api.post(`/events/${eventId}/leave`);
+    console.log('Event left successfully:', response.data);
     return response.data;
   } catch (error: any) {
+    console.error('Error leaving event:', error);
+    console.error('Error response data:', error.response?.data);
     throw error;
   }
 };

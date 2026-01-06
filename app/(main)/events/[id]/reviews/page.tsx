@@ -8,11 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
-import { Star, ArrowLeft, MessageSquare, ThumbsUp, ThumbsDown, User, Loader2 } from 'lucide-react';
+import { Star, ArrowLeft, MessageSquare, ThumbsUp, ThumbsDown, User, Loader2, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { getEventById, Event } from '@/app/lib/events';
-import { getEventReviews, getEventReviewStats, createReview, Review, ReviewStats } from '@/app/lib/reviews';
+import { getEventReviews, getEventReviewStats, createReview, updateReview, deleteReview, Review, ReviewStats } from '@/app/lib/reviews';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
 
 export default function EventReviewsPage() {
   const { user } = useAuth();
@@ -26,6 +27,8 @@ export default function EventReviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userReview, setUserReview] = useState<Review | null>(null);
+  const [editingReview, setEditingReview] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ rating: 5, comment: '' });
   const [newReview, setNewReview] = useState({
     rating: 5,
     comment: ''
@@ -53,7 +56,7 @@ export default function EventReviewsPage() {
       
       // Check if current user has already reviewed
       if (user) {
-        const existingReview = reviewsResponse.data.find(r => r.userId === user._id);
+        const existingReview = reviewsResponse.data.find(r => r.userId._id === user._id);
         setUserReview(existingReview || null);
       }
     } catch (error: any) {
@@ -106,6 +109,74 @@ export default function EventReviewsPage() {
       toast.error(error.response?.data?.message || 'Failed to submit review');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditReview = (review: Review) => {
+    setEditingReview(review._id);
+    setEditForm({
+      rating: review.rating,
+      comment: review.comment
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReview(null);
+    setEditForm({ rating: 5, comment: '' });
+  };
+
+  const handleUpdateReview = async (reviewId: string) => {
+    try {
+      const response = await updateReview(reviewId, editForm);
+      
+      // Update the review in the local state
+      setReviews(prev => prev.map(review => 
+        review._id === reviewId 
+          ? { ...review, rating: editForm.rating, comment: editForm.comment }
+          : review
+      ));
+      
+      // Update userReview if it's the one being edited
+      if (userReview && userReview._id === reviewId) {
+        setUserReview({ ...userReview, rating: editForm.rating, comment: editForm.comment });
+      }
+      
+      toast.success('Review updated successfully!');
+      handleCancelEdit();
+      
+      // Refresh stats
+      const reviewStats = await getEventReviewStats(eventId);
+      setStats(reviewStats);
+    } catch (error: any) {
+      console.error('Failed to update review:', error);
+      toast.error(error.response?.data?.message || 'Failed to update review');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+    
+    try {
+      await deleteReview(reviewId);
+      
+      // Remove the review from local state
+      setReviews(prev => prev.filter(review => review._id !== reviewId));
+      
+      // Clear userReview if it's the one being deleted
+      if (userReview && userReview._id === reviewId) {
+        setUserReview(null);
+      }
+      
+      toast.success('Review deleted successfully!');
+      
+      // Refresh stats
+      const reviewStats = await getEventReviewStats(eventId);
+      setStats(reviewStats);
+    } catch (error: any) {
+      console.error('Failed to delete review:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete review');
     }
   };
 
@@ -234,25 +305,47 @@ export default function EventReviewsPage() {
             )}
 
             {/* User's Existing Review */}
-            {userReview && (
+            {userReview && !editingReview && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Your Review</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Your Review</CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditReview(userReview)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Review
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteReview(userReview._id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Review
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center space-x-4">
                       <Avatar className="h-10 w-10">
-                        {userReview.userProfileImage ? (
-                          <AvatarImage src={userReview.userProfileImage} alt={userReview.userName} />
+                        {userReview.userId.profileImage ? (
+                          <AvatarImage src={userReview.userId.profileImage} alt={userReview.userId.fullName} />
                         ) : (
                           <AvatarFallback>
-                            {userReview.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            {userReview.userId.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                           </AvatarFallback>
                         )}
                       </Avatar>
                       <div>
-                        <h4 className="font-medium">{userReview.userName}</h4>
+                        <h4 className="font-medium">{userReview.userId.fullName}</h4>
                         <p className="text-sm text-gray-500">
                           {formatDate(userReview.createdAt)}
                         </p>
@@ -263,6 +356,57 @@ export default function EventReviewsPage() {
 
                     <p className="text-gray-700">{userReview.comment}</p>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Edit Review Form */}
+            {userReview && editingReview && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Edit Your Review</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={(e) => { e.preventDefault(); handleUpdateReview(userReview._id); }} className="space-y-4">
+                    <div>
+                      <Label className="block text-sm font-medium text-gray-700 mb-2">
+                        Rating
+                      </Label>
+                      {renderStars(editForm.rating, true, (rating) => 
+                        setEditForm({ ...editForm, rating })
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="edit-comment" className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Review
+                      </Label>
+                      <Textarea
+                        id="edit-comment"
+                        value={editForm.comment}
+                        onChange={(e) => setEditForm({ ...editForm, comment: e.target.value })}
+                        placeholder="Share your experience with this event..."
+                        rows={4}
+                        maxLength={500}
+                        required
+                      />
+                      <div className="text-sm text-gray-500 mt-1">
+                        {editForm.comment.length}/500 characters
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        disabled={!editForm.comment.trim() || editForm.comment.trim().length < 10}
+                      >
+                        Save Changes
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
                 </CardContent>
               </Card>
             )}
@@ -279,16 +423,16 @@ export default function EventReviewsPage() {
                     <div className="space-y-4">
                       <div className="flex items-center space-x-4">
                         <Avatar className="h-10 w-10">
-                          {review.userProfileImage ? (
-                            <AvatarImage src={review.userProfileImage} alt={review.userName} />
+                          {review.userId.profileImage ? (
+                            <AvatarImage src={review.userId.profileImage} alt={review.userId.fullName} />
                           ) : (
                             <AvatarFallback>
-                              {review.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              {review.userId.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                             </AvatarFallback>
                           )}
                         </Avatar>
                         <div>
-                          <h4 className="font-medium">{review.userName}</h4>
+                          <h4 className="font-medium">{review.userId.fullName}</h4>
                           <p className="text-sm text-gray-500">
                             {formatDate(review.createdAt)}
                           </p>

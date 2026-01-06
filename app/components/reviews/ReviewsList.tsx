@@ -5,9 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { getEventReviews, getEventReviewStats, Review, ReviewStats, GetReviewsResponse } from '@/app/lib/reviews';
+import { getEventReviews, getEventReviewStats, Review, ReviewStats, GetReviewsResponse, updateReview, deleteReview } from '@/app/lib/reviews';
 import { format, parseISO } from 'date-fns';
-import { Star, MessageSquare, ThumbsUp, Loader2, User } from 'lucide-react';
+import { Star, MessageSquare, ThumbsUp, Loader2, User, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import { useAuth } from '@/app/context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 interface ReviewsListProps {
   eventId: string;
@@ -17,12 +20,15 @@ interface ReviewsListProps {
 }
 
 export default function ReviewsList({ eventId, eventTitle, showWriteReview = false, onWriteReview }: ReviewsListProps) {
+  const { user } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [editingReview, setEditingReview] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ rating: 5, comment: '' });
 
   useEffect(() => {
     fetchReviews();
@@ -89,6 +95,62 @@ export default function ReviewsList({ eventId, eventTitle, showWriteReview = fal
   const loadMoreReviews = () => {
     if (!loading && hasMore) {
       fetchReviews(currentPage + 1);
+    }
+  };
+
+  const handleEditReview = (review: Review) => {
+    setEditingReview(review._id);
+    setEditForm({
+      rating: review.rating,
+      comment: review.comment
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReview(null);
+    setEditForm({ rating: 5, comment: '' });
+  };
+
+  const handleUpdateReview = async (reviewId: string) => {
+    try {
+      const response = await updateReview(reviewId, editForm);
+      
+      // Update the review in the local state
+      setReviews(prev => prev.map(review => 
+        review._id === reviewId 
+          ? { ...review, rating: editForm.rating, comment: editForm.comment }
+          : review
+      ));
+      
+      toast.success('Review updated successfully!');
+      handleCancelEdit();
+      
+      // Refresh stats
+      fetchStats();
+    } catch (error: any) {
+      console.error('Failed to update review:', error);
+      toast.error(error.response?.data?.message || 'Failed to update review');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+    
+    try {
+      await deleteReview(reviewId);
+      
+      // Remove the review from local state
+      setReviews(prev => prev.filter(review => review._id !== reviewId));
+      
+      toast.success('Review deleted successfully!');
+      
+      // Refresh stats
+      fetchStats();
+    } catch (error: any) {
+      console.error('Failed to delete review:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete review');
     }
   };
 
@@ -194,42 +256,125 @@ export default function ReviewsList({ eventId, eventTitle, showWriteReview = fal
           {reviews.map((review) => (
             <Card key={review._id}>
               <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-10 w-10">
-                    {review.userProfileImage ? (
-                      <AvatarImage src={review.userProfileImage} alt={review.userName} />
-                    ) : (
-                      <AvatarFallback>
-                        {review.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium">{review.userName}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          {renderStars(review.rating)}
-                          <span className="text-sm text-gray-500">
-                            {formatDate(review.createdAt)}
-                          </span>
-                        </div>
+                {editingReview === review._id ? (
+                  // Edit Form
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Rating
+                      </label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, rating: star })}
+                            className="cursor-pointer hover:scale-110 transition-transform"
+                          >
+                            <Star
+                              className={`w-5 h-5 ${
+                                star <= editForm.rating
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    
-                    <p className="text-gray-700 mt-3 leading-relaxed">
-                      {review.comment}
-                    </p>
-                    
-                    <div className="flex items-center gap-4 mt-4">
-                      <Button variant="ghost" size="sm" className="text-gray-500">
-                        <ThumbsUp className="h-4 w-4 mr-1" />
-                        Helpful
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Review
+                      </label>
+                      <textarea
+                        value={editForm.comment}
+                        onChange={(e) => setEditForm({ ...editForm, comment: e.target.value })}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows={3}
+                        maxLength={500}
+                        placeholder="Share your experience with this event..."
+                      />
+                      <div className="text-sm text-gray-500 mt-1">
+                        {editForm.comment.length}/500 characters
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleUpdateReview(review._id)}
+                        disabled={!editForm.comment.trim() || editForm.comment.trim().length < 10}
+                      >
+                        Save Changes
+                      </Button>
+                      <Button variant="outline" onClick={handleCancelEdit}>
+                        Cancel
                       </Button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // Normal Review Display
+                  <div className="flex items-start gap-4">
+                    <Avatar className="h-10 w-10">
+                      {review.userId.profileImage ? (
+                        <AvatarImage src={review.userId.profileImage} alt={review.userId.fullName} />
+                      ) : (
+                        <AvatarFallback>
+                          {review.userId.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium">{review.userId.fullName}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            {renderStars(review.rating)}
+                            <span className="text-sm text-gray-500">
+                              {formatDate(review.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Edit/Delete Menu */}
+                        {user && user._id === review.userId._id && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditReview(review)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Review
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteReview(review._id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Review
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                      
+                      <p className="text-gray-700 mt-3 leading-relaxed">
+                        {review.comment}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 mt-4">
+                        <Button variant="ghost" size="sm" className="text-gray-500">
+                          <ThumbsUp className="h-4 w-4 mr-1" />
+                          Helpful
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

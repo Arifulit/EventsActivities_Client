@@ -11,7 +11,8 @@ import { Badge } from '@/app/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { Loader2, Search, Calendar as CalendarIcon, MapPin, Users as UsersIcon, DollarSign, Star, Filter, Sparkles, TrendingUp, Clock, Heart, Leaf } from 'lucide-react';
 import EventCard from '@/app/components/events/EventCard';
-import { getEvents, Event } from '@/app/lib/events';
+import { getEvents, type Event } from '@/app/lib/events';
+import ProfessionalSearch from '@/components/search/ProfessionalSearch';
 
 type EventStatus = 'open' | 'upcoming' | 'past' | 'cancelled';
 type EventType = 'workshop' | 'meetup' | 'conference' | 'social' | 'party' | 'competition' | 'webinar' | 'all';
@@ -30,6 +31,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   
   const [filters, setFilters] = useState<Filters>({
     type: (searchParams.get('type') as EventType) || 'all',
@@ -38,45 +40,63 @@ export default function EventsPage() {
     search: searchParams.get('search') || ''
   });
 
-  // Fetch events when filters change
+  // Initial load only
   useEffect(() => {
-    const fetchEvents = async () => {
+    const initialLoad = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Use our API service
+        // Load initial events without filters
         const eventsData = await getEvents();
         setEvents(eventsData);
+        setHasSearched(true);
       } catch (err) {
-        console.error('Error fetching events:', err);
+        console.error('Error loading events:', err);
         setError(err instanceof Error ? err.message : 'Failed to load events');
       } finally {
         setLoading(false);
       }
     };
 
-    // Update URL with current filters
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.set(key, value);
-    });
-    
-    // Only update URL if it's different to prevent infinite loops
-    if (params.toString() !== searchParams.toString()) {
-      router.replace(`/events?${params.toString()}`, { scroll: false });
-    }
-    
-    fetchEvents();
-  }, [filters, router, searchParams]);
+    initialLoad();
+  }, []); // Only run once on mount
 
   const handleFilterChange = (name: keyof Filters, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    // The useEffect will trigger a refetch with the new filters
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Build filter parameters
+      const params: any = {};
+      if (filters.type && filters.type !== 'all') params.type = filters.type;
+      if (filters.location) params.location = filters.location;
+      if (filters.status && filters.status !== 'open') params.status = filters.status;
+      if (filters.search) params.search = filters.search;
+      
+      // Call API with filters
+      const eventsData = await getEvents(params);
+      setEvents(eventsData);
+      
+      // Update URL
+      const urlParams = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) urlParams.set(key, value);
+      });
+      
+      router.replace(`/events?${urlParams.toString()}`, { scroll: false });
+    } catch (err) {
+      console.error('Error searching events:', err);
+      setError(err instanceof Error ? err.message : 'Failed to search events');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetFilters = () => {
@@ -103,26 +123,8 @@ export default function EventsPage() {
     }
   };
 
-  // Filter events based on current filters
-  const filteredEvents = events.filter(event => {
-    if (filters.type && filters.type !== 'all' && event.type !== filters.type) return false;
-    if (filters.location && event.location.city.toLowerCase() !== filters.location.toLowerCase()) return false;
-    if (filters.status && event.status !== filters.status) return false;
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      return (
-        event.title.toLowerCase().includes(searchLower) ||
-        event.description.toLowerCase().includes(searchLower) ||
-        event.location.venue.toLowerCase().includes(searchLower) ||
-        event.location.city.toLowerCase().includes(searchLower) ||
-        event.tags.some(tag => tag.toLowerCase().includes(searchLower))
-      );
-    }
-    return true;
-  });
-
   // Sort events by date (upcoming first)
-  const sortedEvents = [...filteredEvents].sort((a, b) => {
+  const sortedEvents = [...events].sort((a, b) => {
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
     return dateA.getTime() - dateB.getTime();
@@ -177,16 +179,16 @@ export default function EventsPage() {
             <form onSubmit={handleSearch}>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
                 <div className="lg:col-span-2">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      type="search"
-                      placeholder="Search events, venues, tags..."
-                      className="pl-12 h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500"
-                      value={filters.search}
-                      onChange={(e) => handleFilterChange('search', e.target.value)}
-                    />
-                  </div>
+                  <ProfessionalSearch
+                    value={filters.search}
+                    onChange={(value) => handleFilterChange('search', value)}
+                    onSearch={(query) => {
+                      handleFilterChange('search', query);
+                      handleSearch(new Event('submit') as any);
+                    }}
+                    placeholder="Search events, venues, tags..."
+                    className="w-full"
+                  />
                 </div>
                 
                 <div>
@@ -238,6 +240,23 @@ export default function EventsPage() {
               
               <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
                 <Button 
+                  type="submit" 
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Search Events
+                    </>
+                  )}
+                </Button>
+                <Button 
                   type="button" 
                   variant="outline" 
                   onClick={resetFilters} 
@@ -246,7 +265,7 @@ export default function EventsPage() {
                   Reset Filters
                 </Button>
                 <div className="flex items-center gap-2 text-base text-gray-500 ml-auto">
-                  <span>{sortedEvents.length} events found</span>
+                  <span>{events.length} events found</span>
                 </div>
               </div>
             </form>

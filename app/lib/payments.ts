@@ -2,13 +2,7 @@ import api from './api';
 
 export interface CreatePaymentIntentRequest {
   eventId: string;
-  amount: number;
-  currency?: string;
-  metadata?: {
-    eventName?: string;
-    userId?: string;
-    [key: string]: string | undefined;
-  };
+  quantity: number;
 }
 
 export interface PaymentIntentResponse {
@@ -19,7 +13,8 @@ export interface PaymentIntentResponse {
     paymentIntentId: string;
     amount: number;
     currency: string;
-    status: string;
+    paymentId: string;
+    bookingId: string;
   };
   timestamp: string;
 }
@@ -48,25 +43,119 @@ export interface BookingResponse {
   timestamp: string;
 }
 
-export interface BookingConfirmationRequest {
+export interface PaymentConfirmationRequest {
   bookingId: string;
-  paymentIntentId?: string;
+  paymentIntentId: string;
 }
 
-export const createPaymentIntent = async (data: CreatePaymentIntentRequest): Promise<PaymentIntentResponse> => {
+export interface PaymentConfirmationResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    bookingId: string;
+    paymentId: string;
+    status: string;
+    amount: number;
+    currency: string;
+  };
+  timestamp: string;
+}
+
+export const confirmPayment = async (bookingId: string, paymentIntentId: string): Promise<PaymentConfirmationResponse> => {
   try {
-    const response = await api.post('/bookings/create-intent', data);
-    return response.data;
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch('/api/payments/confirm', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bookingId,
+        paymentIntentId
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to confirm payment');
+    }
+    
+    return data;
   } catch (error: any) {
+    console.error('Error confirming payment:', error);
     throw error;
   }
 };
 
-export const confirmBooking = async (data: BookingConfirmationRequest): Promise<BookingResponse> => {
+export const createPaymentIntent = async (eventId: string, quantity: number): Promise<PaymentIntentResponse> => {
   try {
-    const response = await api.post('/bookings/confirm', data);
-    return response.data;
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch('/api/payments/create-intent', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventId,
+        quantity
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create payment intent');
+    }
+    
+    return data;
   } catch (error: any) {
+    console.error('Error creating payment intent:', error);
+    throw error;
+  }
+};
+
+export const confirmBooking = async (data: PaymentConfirmationRequest): Promise<BookingResponse> => {
+  try {
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch('/api/payments/confirm', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Failed to confirm booking');
+    }
+    
+    return responseData;
+  } catch (error: any) {
+    console.error('Error confirming booking:', error);
     throw error;
   }
 };

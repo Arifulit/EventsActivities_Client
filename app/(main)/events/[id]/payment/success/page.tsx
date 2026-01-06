@@ -46,23 +46,19 @@ export default function PaymentSuccessPage() {
 
   const fetchEventDetails = async () => {
     try {
-      // Mock data - replace with actual API call
-      const mockEvent = {
-        _id: eventId,
-        name: 'Summer Music Festival',
-        date: '2024-07-15',
-        time: '18:00',
-        location: 'Central Park, New York',
-        joiningFee: 25,
-        host: {
-          fullName: 'Music Events Co.',
-          email: 'info@musicevents.com'
-        }
-      };
-
-      setEvent(mockEvent);
+      // Fetch event details from API
+      const response = await fetch(`/api/events/${eventId}`);
+      
+      if (!response.ok) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = await response.json();
+      
+      setEvent(eventData.data);
     } catch (error) {
       console.error('Failed to fetch event details:', error);
+      setEvent(null);
     } finally {
       setIsLoading(false);
     }
@@ -83,26 +79,39 @@ export default function PaymentSuccessPage() {
     }
   };
 
-  const handleDownloadTicket = () => {
-    // Mock ticket download - replace with actual implementation
-    const ticketData = {
-      event: event?.name,
-      date: formatDate(event?.date),
-      time: formatTime(event?.time),
-      location: event?.location,
-      attendee: user?.fullName,
-      orderId: orderId
-    };
-
-    const dataStr = JSON.stringify(ticketData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `ticket-${event?.name.replace(/\s+/g, '-').toLowerCase()}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+  const handleDownloadTicket = async () => {
+    try {
+      // Generate and download ticket from API
+      const response = await fetch(`/api/tickets/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId,
+          userId: user?._id,
+          orderId
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate ticket');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ticket-${eventId}-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to download ticket:', error);
+      // Fallback to opening print dialog
+      window.print();
+    }
   };
 
   if (isLoading) {

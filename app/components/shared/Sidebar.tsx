@@ -26,7 +26,8 @@ import {
   TrendingUp,
   UserCheck,
   CalendarDays,
-  Users2
+  Users2,
+  MessageSquare
 } from 'lucide-react';
 import { getRoleDisplayName, getRoleBadgeColor } from '@/types/auth';
 
@@ -57,7 +58,6 @@ export default function RoleBasedSidebar() {
     {
       title: 'Main',
       items: [
-        { href: '/events', label: 'Browse Events', icon: <Calendar className="w-4 h-4" /> },
         { href: '/dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
         { href: `/profile/${user._id}`, label: 'My Profile', icon: <User className="w-4 h-4" /> },
       ],
@@ -75,10 +75,11 @@ export default function RoleBasedSidebar() {
           requiredPermission: 'viewOwnBookings',
         },
         {
-          href: '/dashboard/user/saved-events',
-          label: 'Saved Events',
-          icon: <FileText className="w-4 h-4" />,
+          href: '/dashboard/user/my-events',
+          label: 'My Events',
+          icon: <Calendar className="w-4 h-4" />,
         },
+        
       ],
     });
   }
@@ -108,11 +109,12 @@ export default function RoleBasedSidebar() {
     navSections.push({
       title: 'Administration',
       items: [
-        { href: '/dashboard/admin/users', label: 'Manage Users', icon: <Users className="w-4 h-4" />, requiredPermission: 'manageUsers', badge: 'Admin' },
-        { href: '/dashboard/admin/events', label: 'Manage Events', icon: <Settings className="w-4 h-4" />, requiredPermission: 'manageEvents', badge: 'Admin' },
-        { href: '/dashboard/admin/hosts', label: 'Manage Hosts', icon: <Shield className="w-4 h-4" />, requiredPermission: 'manageHosts', badge: 'Admin' },
-        { href: '/dashboard/admin/analytics', label: 'System Analytics', icon: <BarChart3 className="w-4 h-4" />, requiredPermission: 'viewAnalytics', badge: 'Admin' },
-        { href: '/dashboard/admin/approvals', label: 'Host Approvals', icon: <UserCheck className="w-4 h-4" />, requiredPermission: 'approveHosts', badge: 'Admin' },
+        { href: '/dashboard/admin/users', label: 'Manage Users', icon: <Users className="w-4 h-4" />, requiredPermission: 'manageUsers' },
+        { href: '/dashboard/admin/events', label: 'Manage Events', icon: <Settings className="w-4 h-4" />, requiredPermission: 'manageEvents' },
+        { href: '/dashboard/admin/hosts', label: 'Manage Hosts', icon: <Shield className="w-4 h-4" />, requiredPermission: 'manageHosts' },
+        { href: '/dashboard/admin/reviews', label: 'Reviews & Content', icon: <MessageSquare className="w-4 h-4" />, requiredPermission: 'manageReviews' },
+        { href: '/dashboard/admin/analytics', label: 'System Analytics', icon: <BarChart3 className="w-4 h-4" />, requiredPermission: 'viewAnalytics' },
+        { href: '/dashboard/admin/approvals', label: 'Host Approvals', icon: <UserCheck className="w-4 h-4" />, requiredPermission: 'approveHosts' },
       ],
     });
   }
@@ -176,11 +178,25 @@ export default function RoleBasedSidebar() {
         <div className="p-4 border-b flex items-center justify-between">
           {!isCollapsed && <Link href="/events" className="font-bold text-lg">EventHub</Link>}
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="ghost" onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex">
-              {isCollapsed ? <Menu /> : <X />}
+            {/* Desktop/Tablet: Only show collapse toggle on hover/focus */}
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              onClick={() => setIsCollapsed(!isCollapsed)} 
+              className="hidden lg:flex hover:bg-gray-100"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? <Menu className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
-            <Button size="icon" variant="ghost" onClick={() => setIsMobileOpen(false)} className="lg:hidden">
-              <X />
+            {/* Mobile/Tablet: Only show close button */}
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              onClick={() => setIsMobileOpen(false)} 
+              className="lg:hidden hover:bg-gray-100"
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
