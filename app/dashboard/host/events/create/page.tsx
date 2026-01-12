@@ -188,8 +188,8 @@ export default function CreateEventPage() {
       console.error('Failed to create event:', error);
       
       if (error.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat();
-        setErrors(errorMessages.reduce((acc: any, msg: string, index: number) => {
+        const errorMessages = Object.values(error.response.data.errors).flat() as string[];
+        setErrors(errorMessages.reduce((acc: { [key: string]: string }, msg: string, index: number) => {
           acc[`server_${index}`] = msg;
           return acc;
         }, {}));

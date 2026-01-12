@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { getAdminUsers, verifyUser, banUser, unbanUser, AdminUser } from '@/app/lib/admin';
-import { api } from '@/app/lib/api';
+import api from '@/app/lib/api';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/app/components/ui/button';
@@ -20,8 +20,10 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  SelectValue,
 } from '@/app/components/ui/dropdown-menu';
+import {
+  SelectValue,
+} from '@/app/components/ui/select';
 import {
   ArrowLeft,
   User,
@@ -101,7 +103,7 @@ export default function UserDetailsPage() {
     }
   };
 
-  const handleUserAction = async (action: string) => {
+  const handleUserAction = async (action: string, role?: 'user' | 'host' | 'admin') => {
     if (!user) return;
     
     setIsActionLoading(true);
@@ -131,6 +133,15 @@ export default function UserDetailsPage() {
           await api.patch(`/admin/users/${userId}/status`, { status: 'active' });
           toast.success('User reactivated successfully');
           setUser({ ...user, isActive: true });
+          break;
+        case 'changeRole':
+          if (!role) {
+            toast.error('Role is required for role change');
+            return;
+          }
+          await api.patch(`/admin/users/${userId}/role`, { role });
+          toast.success(`User role changed to ${role} successfully`);
+          setUser({ ...user, role });
           break;
         case 'delete':
           await api.delete(`/admin/users/${userId}`);
@@ -288,9 +299,9 @@ export default function UserDetailsPage() {
                           </Button>
                         )}
                         {user.role === 'user' && (
-                          <Dropdown>
+                          <DropdownMenu>
                             <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="hover:bg-gray-50 cursor-pointer">
+                              <DropdownMenuSubTrigger asChild>
                                 <Button 
                                   disabled={isActionLoading}
                                   className="w-full bg-purple-600 hover:bg-purple-700"
@@ -305,13 +316,13 @@ export default function UserDetailsPage() {
                                   <span>Host</span>
                                 </DropdownMenuItem>
                               </DropdownMenuSubContent>
-                            </Dropdown>
-                          </Dropdown>
+                            </DropdownMenuSub>
+                          </DropdownMenu>
                         )}
                         {user.role === 'host' && (
-                          <Dropdown>
+                          <DropdownMenu>
                             <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="hover:bg-gray-50 cursor-pointer">
+                              <DropdownMenuSubTrigger asChild>
                                 <Button 
                                   disabled={isActionLoading}
                                   className="w-full bg-blue-600 hover:bg-blue-700"
@@ -326,8 +337,8 @@ export default function UserDetailsPage() {
                                   <span>User</span>
                                 </DropdownMenuItem>
                               </DropdownMenuSubContent>
-                            </Dropdown>
-                          </Dropdown>
+                            </DropdownMenuSub>
+                          </DropdownMenu>
                         )}
                         {user.isActive ? (
                           <Button 

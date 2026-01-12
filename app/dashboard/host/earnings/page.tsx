@@ -23,6 +23,15 @@ import api from '@/app/lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/app/context/AuthContext';
 
+interface Transaction {
+  id: string;
+  eventName: string;
+  date: string;
+  attendees: number;
+  amount: number;
+  status: string;
+}
+
 export default function HostEarningsPage() {
   const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -35,9 +44,9 @@ export default function HostEarningsPage() {
     totalEvents: 0,
     averagePerEvent: 0
   });
-  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [hostReviews, setHostReviews] = useState([]);
-  const [monthlyEarnings, setMonthlyEarnings] = useState([]);
+  const [monthlyEarnings, setMonthlyEarnings] = useState<{ month: string; earnings: number }[]>([]);
   const [hostStats, setHostStats] = useState<{
     averageRating: number;
     totalReviews: number;
@@ -83,7 +92,7 @@ export default function HostEarningsPage() {
         { month: 'Nov', earnings: 3200 },
         { month: 'Dec', earnings: 3240 },
         { month: 'Jan', earnings: earningsData.thisMonth || 2980 }
-      ]);
+      ] as { month: string; earnings: number }[]);
     } catch (error: any) {
       console.error('Failed to fetch host rating stats:', error);
     }
@@ -252,7 +261,7 @@ export default function HostEarningsPage() {
           {hostStats.ratingDistribution ? (
             <div className="space-y-3">
               {[5, 4, 3, 2, 1].map((rating) => {
-                const ratingData = hostStats.ratingDistribution[rating.toString()];
+                const ratingData = hostStats.ratingDistribution?.[rating.toString()];
                 const percentage = parseFloat(ratingData?.percentage || '0');
                 const count = ratingData?.count || 0;
                 

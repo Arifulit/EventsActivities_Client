@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/app/components/ui/button';
@@ -49,8 +49,8 @@ const eventSchema = z.object({
   maxParticipants: z.number().min(1, 'Capacity must be at least 1'),
   tags: z.array(z.string()).optional(),
   requirements: z.array(z.string()).optional(),
-  status: z.enum(['draft', 'open', 'cancelled']).default('draft'),
-  isPublic: z.boolean().default(true),
+  status: z.enum(['draft', 'open', 'cancelled']),
+  isPublic: z.boolean(),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -236,7 +236,7 @@ export default function EditEventPage() {
     }
   };
 
-  const onSubmit = async (data: EventFormData) => {
+  const onSubmit: SubmitHandler<EventFormData> = async (data) => {
     setSubmitting(true);
     
     try {

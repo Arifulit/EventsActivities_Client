@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
-import { api } from '@/app/lib/api';
+import api from '@/app/lib/api';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/app/components/ui/button';
@@ -539,11 +539,11 @@ export default function AdminEventDetailsPage() {
                         <Star className="h-5 w-5 mr-2" />
                         Reviews ({eventDetails?.reviews.length || 0})
                       </div>
-                      {eventDetails?.reviewStats.total > 0 && (
+                      {eventDetails?.reviewStats?.total && eventDetails.reviewStats.total > 0 && (
                         <div className="flex items-center">
-                          {renderStars(Math.floor(eventDetails.reviewStats.averageRating))}
+                          {renderStars(Math.floor(eventDetails?.reviewStats?.averageRating || 0))}
                           <span className="text-sm text-gray-600 ml-1">
-                            ({eventDetails.reviewStats.averageRating.toFixed(1)})
+                            ({(eventDetails?.reviewStats?.averageRating || 0).toFixed(1)})
                           </span>
                         </div>
                       )}

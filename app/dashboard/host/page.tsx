@@ -30,6 +30,14 @@ import {
 import api from '@/app/lib/api';
 import toast from 'react-hot-toast';
 
+interface Activity {
+  id: string;
+  message: string;
+  time: string;
+  color: string;
+  icon: any;
+}
+
 export default function HostLayout({
   children,
 }: {
@@ -48,7 +56,7 @@ export default function HostLayout({
       earnings: 0,
       events: 0
     },
-    recentActivities: [],
+    recentActivities: [] as Activity[],
     upcomingEvents: [],
     topPerformingEvents: []
   });
@@ -103,7 +111,7 @@ export default function HostLayout({
       
       // Fetch recent activities from API
       const activitiesResponse = await api.get('/dashboard/activities');
-      const recentActivities = activitiesResponse.data.data || [];
+      const recentActivities = (activitiesResponse.data.data || []) as Activity[];
       
       // Upcoming events
       const upcomingEvents = events

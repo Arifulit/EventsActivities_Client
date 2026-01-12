@@ -41,15 +41,10 @@ function PaymentFormContent({ event, onSuccess, onCancel }: PaymentFormProps) {
         setIsLoading(true);
         setError(null);
         
-        const response = await createPaymentIntent({
-          eventId: event._id,
-          amount: event.price * 100, // Convert to cents
-          currency: 'usd',
-          metadata: {
-            eventName: event.title,
-            eventId: event._id,
-          },
-        });
+        const response = await createPaymentIntent(
+          event._id,
+          1 // Default quantity to 1 for single event registration
+        );
 
         if (response.success) {
           setClientSecret(response.data.clientSecret);

@@ -58,7 +58,7 @@ export default function AIReviewForm({
     );
   };
 
-  const generateAIReview = async () => {
+  const handleGenerateAIReview = async () => {
     if (!event) return;
 
     setIsGeneratingAI(true);
@@ -76,9 +76,9 @@ export default function AIReviewForm({
         }
       });
 
-      setAiSuggestions(response.suggestions);
-      setEnhancedComment(response.enhancedComment);
-      setSentiment(response.sentiment);
+      setAiSuggestions(response.data.suggestions);
+      setEnhancedComment(response.data.enhancedComment);
+      setSentiment(response.data.sentiment);
       setShowAIHelper(true);
       
       toast.success('AI review generated successfully!');
@@ -266,7 +266,7 @@ export default function AIReviewForm({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={generateAIReview}
+                  onClick={handleGenerateAIReview}
                   disabled={isGeneratingAI}
                   className="text-purple-600 hover:text-purple-700"
                 >
@@ -321,7 +321,7 @@ export default function AIReviewForm({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={generateAIReview}
+                    onClick={handleGenerateAIReview}
                     disabled={isGeneratingAI}
                     className="border-purple-200 hover:bg-purple-100"
                   >

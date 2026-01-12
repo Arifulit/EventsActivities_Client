@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
-import { api } from '@/app/lib/api';
+import api from '@/app/lib/api';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/app/components/ui/button';

@@ -147,7 +147,7 @@ export default function AdminReviewsPage() {
         case 'view':
           const review = reviews.find(r => r._id === reviewId);
           if (review) {
-            toast.info(`Viewing review for event: ${review.eventId.title}`);
+            toast(`Viewing review for event: ${review.eventId.title}`);
           }
           break;
         case 'delete':
@@ -189,7 +189,7 @@ export default function AdminReviewsPage() {
   };
 
   const handleExport = () => {
-    toast.info('Export functionality coming soon');
+    toast('Export functionality coming soon');
   };
 
   const handleRefresh = () => {

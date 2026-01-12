@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hostId: string } }
+  { params }: { params: Promise<{ hostId: string }> }
 ) {
   try {
-    const { hostId } = params;
+    const { hostId } = await params;
     const { searchParams } = new URL(request.url);
     
     // Extract optional query parameters
