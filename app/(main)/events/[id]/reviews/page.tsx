@@ -14,6 +14,7 @@ import { getEventReviews, getEventReviewStats, createReview, updateReview, delet
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import AIReviewForm from '@/app/components/reviews/AIReviewForm';
 
 export default function EventReviewsPage() {
   const { user } = useAuth();
@@ -95,6 +96,39 @@ export default function EventReviewsPage() {
       };
 
       const response = await createReview(reviewData);
+      
+      toast.success('Review submitted successfully!');
+      setReviews([response.data, ...reviews]);
+      setUserReview(response.data);
+      setNewReview({ rating: 5, comment: '' });
+      
+      // Refresh stats
+      const reviewStats = await getEventReviewStats(eventId);
+      setStats(reviewStats);
+    } catch (error: any) {
+      console.error('Failed to submit review:', error);
+      toast.error(error.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAIReviewSubmit = async (reviewData: { rating: number; comment: string }) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const data = {
+        eventId,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+      };
+
+      const response = await createReview(data);
       
       toast.success('Review submitted successfully!');
       setReviews([response.data, ...reviews]);
@@ -250,58 +284,15 @@ export default function EventReviewsPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Review Form */}
+            {/* AI-Enhanced Review Form */}
             {user && !userReview && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Write a Review</CardTitle>
-                  <CardDescription>Share your experience with this event</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmitReview} className="space-y-4">
-                    <div>
-                      <Label className="block text-sm font-medium text-gray-700 mb-2">
-                        Rating
-                      </Label>
-                      {renderStars(newReview.rating, true, (rating) => 
-                        setNewReview({ ...newReview, rating })
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
-                        Your Review
-                      </Label>
-                      <Textarea
-                        id="comment"
-                        value={newReview.comment}
-                        onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                        placeholder="Share your experience with this event..."
-                        rows={4}
-                        maxLength={500}
-                        required
-                      />
-                      <div className="text-sm text-gray-500 mt-1">
-                        {newReview.comment.length}/500 characters
-                      </div>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || !newReview.comment.trim() || newReview.comment.trim().length < 10}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        'Submit Review'
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              <AIReviewForm
+                event={event}
+                onSubmit={handleAIReviewSubmit}
+                isSubmitting={isSubmitting}
+                initialRating={newReview.rating}
+                initialComment={newReview.comment}
+              />
             )}
 
             {/* User's Existing Review */}

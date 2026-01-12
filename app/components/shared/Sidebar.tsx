@@ -68,18 +68,23 @@ export default function RoleBasedSidebar() {
     navSections.push({
       title: 'My Activities',
       items: [
-        {
-          href: '/dashboard/user/my-bookings',
-          label: 'My Bookings',
-          icon: <CalendarDays className="w-4 h-4" />,
-          requiredPermission: 'viewOwnBookings',
+            {
+          href: '/events',
+          label: 'Explore Events',
+          icon: <TrendingUp className="w-4 h-4" />,
         },
         {
           href: '/dashboard/user/my-events',
           label: 'My Events',
           icon: <Calendar className="w-4 h-4" />,
         },
-        
+         {
+          href: '/dashboard/user/my-bookings',
+          label: 'My Bookings',
+          icon: <CalendarDays className="w-4 h-4" />,
+          requiredPermission: 'viewOwnBookings',
+        },
+    
       ],
     });
   }

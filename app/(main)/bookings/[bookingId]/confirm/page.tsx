@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Badge } from '@/app/components/ui/badge';
 import { confirmBooking, getBookingDetails, BookingResponse } from '@/app/lib/payments';
 import { getEventById, Event } from '@/app/lib/events';
+import StripePaymentForm from '@/components/payment/StripePaymentForm';
 import { toast } from 'react-hot-toast';
 import {
   CheckCircle2,
@@ -22,7 +23,8 @@ import {
   ArrowLeft,
   ExternalLink,
   Download,
-  Share2
+  Share2,
+  CreditCard
 } from 'lucide-react';
 
 export default function BookingConfirmationPage() {
@@ -61,7 +63,8 @@ export default function BookingConfirmationPage() {
       setBooking(bookingData);
 
       // Get event details
-      const eventData = await getEventById(bookingData.data.eventId);
+      const eventId = String(bookingData.data.eventId);
+      const eventData = await getEventById(eventId);
       setEvent(eventData);
 
       // If booking is not confirmed and we have payment intent, confirm it
@@ -77,17 +80,50 @@ export default function BookingConfirmationPage() {
   };
 
   const handleConfirmBooking = async () => {
+    if (!user) {
+      toast.error('Please log in to confirm your booking');
+      router.push('/login');
+      return;
+    }
+    
     setIsConfirming(true);
     try {
+      // Debug authentication
+      console.log('Current user:', user);
+      console.log('User ID:', user?._id);
+      console.log('Booking ID:', bookingId);
+      console.log('Payment Intent ID:', paymentIntentId);
+      
       const response = await confirmBooking({
         bookingId,
-        paymentIntentId: paymentIntentId || undefined,
+        paymentIntentId: paymentIntentId || '', // Use empty string instead of undefined
+        paymentMethodId: '', // Will be added when payment method selection is implemented
+        returnUrl: `${window.location.origin}/payment-complete`, // Dynamic return URL
       });
 
       setBooking(response);
       toast.success('Booking confirmed successfully!');
     } catch (error: any) {
       console.error('Error confirming booking:', error);
+      
+      // Handle 403 unauthorized errors specifically
+      if (error.response?.status === 403) {
+        toast.error('Authentication error. Please log out and log back in.');
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+        return;
+      }
+      
+      // Handle specific duplicate booking error
+      if (error.response?.data?.message?.includes('E11000') || 
+          error.response?.data?.message?.includes('duplicate key') ||
+          error.response?.data?.message?.includes('already booked')) {
+        toast.error('You have already booked this event. Check your bookings in your dashboard.');
+        setError('You have already booked this event.');
+        return;
+      }
+      
       const errorMessage = error.response?.data?.message || 'Failed to confirm booking';
       setError(errorMessage);
       toast.error(errorMessage);
@@ -295,6 +331,55 @@ export default function BookingConfirmationPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Payment Form for Pending Bookings */}
+            {!isConfirmed && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Complete Payment
+                  </CardTitle>
+                  <CardDescription>
+                    Enter your card details to confirm your booking
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {paymentIntentId ? (
+                    <StripePaymentForm
+                      clientSecret={paymentIntentId}
+                      bookingId={bookingId}
+                      onSuccess={() => {
+                        toast.success('Payment completed successfully!');
+                        window.location.reload(); // Reload to show updated status
+                      }}
+                      onError={(error: string) => {
+                        console.error('Payment failed:', error);
+                        toast.error(`Payment failed: ${error}`);
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-600 mb-4">Payment information not available</p>
+                      <Button 
+                        onClick={handleConfirmBooking}
+                        disabled={isConfirming}
+                        className="w-full"
+                      >
+                        {isConfirming ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Generate Payment Link'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Actions */}
             <Card>
               <CardHeader>

@@ -39,7 +39,7 @@ export default function RoleBasedNav() {
     const baseItems: NavItem[] = [
       {
         href: '/events',
-        label: 'Events',
+        label: 'Explore Events',
         icon: <Calendar className="w-4 h-4" />,
       },
       {

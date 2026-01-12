@@ -13,6 +13,8 @@ import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Calendar, MapPin, Users, Clock, DollarSign, ArrowLeft, Share2, MessageSquare, Star, ExternalLink, Loader2, User, MessageCircle, CheckCircle2, AlertCircle, CalendarIcon, MapPinIcon, UsersIcon, Edit, Tag, Info, CalendarCheck, AlertTriangle, UserCheck, Flag, Award } from 'lucide-react';
 import { getEventById, joinEvent, leaveEvent, Event } from '@/app/lib/events';
+import { createPaymentIntent, PaymentIntentResponse } from '@/app/lib/payments';
+import { confirmPayment } from '@/app/lib/payments';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import ReviewsList from '@/app/components/reviews/ReviewsList';
 
@@ -22,6 +24,10 @@ export default function EventDetailsPage() {
   const router = useRouter();
   const eventId = params.id as string;
 
+  // Debug: Log the eventId to check if it's valid
+  console.log('Event ID from params:', eventId);
+  console.log('Params object:', params);
+
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -29,22 +35,76 @@ export default function EventDetailsPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('details');
   const [isClient, setIsClient] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    fetchEventDetails();
+    if (eventId && eventId.trim() !== '' && /^[0-9a-fA-F]{24}$/.test(eventId)) {
+      fetchEventDetails();
+    } else if (!eventId || eventId.trim() === '') {
+      console.error('Invalid or missing eventId:', eventId);
+      toast.error('Invalid event ID');
+      setIsLoading(false);
+    } else {
+      console.error('Invalid eventId format:', eventId);
+      toast.error('Invalid event ID format');
+      setIsLoading(false);
+    }
   }, [eventId]);
 
+  // Update isJoined state when currentUser or event changes
+  useEffect(() => {
+    if (event && currentUser) {
+      const isParticipant = event.participants.some(participant => {
+        if (typeof participant === 'string') {
+          return participant === currentUser._id;
+        } else if (participant && typeof participant === 'object' && participant._id) {
+          return participant._id === currentUser._id;
+        }
+        return false;
+      });
+      setIsJoined(isParticipant);
+    } else if (!currentUser) {
+      setIsJoined(false);
+    }
+  }, [event, currentUser]);
+
   const fetchEventDetails = async () => {
+    if (!eventId || eventId.trim() === '') {
+      console.error('Invalid eventId - empty or undefined');
+      toast.error('Invalid event ID');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if eventId has valid ObjectId format
+    if (!/^[0-9a-fA-F]{24}$/.test(eventId)) {
+      console.error('Invalid eventId format:', eventId);
+      toast.error('Invalid event ID format');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
+      console.log('Fetching event with ID:', eventId);
       const eventData = await getEventById(eventId);
       setEvent(eventData);
       
       // Check if current user is already a participant
       if (currentUser) {
-        const isParticipant = eventData.participants.includes(currentUser._id);
+        const isParticipant = eventData.participants.some(participant => {
+          if (typeof participant === 'string') {
+            return participant === currentUser._id;
+          } else if (participant && typeof participant === 'object' && participant._id) {
+            return participant._id === currentUser._id;
+          }
+          return false;
+        });
         setIsJoined(isParticipant);
+      } else if (!currentUser) {
+        setIsJoined(false);
       }
     } catch (error) {
       console.error('Failed to fetch event details:', error);
@@ -62,20 +122,52 @@ export default function EventDetailsPage() {
 
     if (!event) return;
 
+    // Check if user is already joined
+    if (isJoined) {
+      toast.error('You have already joined this event.');
+      return;
+    }
+
     setIsJoining(true);
     try {
-      const response = await joinEvent(eventId);
-      
-      // Update local state with response data
-      setEvent(response.data);
-      setIsJoined(true);
-      toast.success(response.message);
+      // Check if event is free or paid
+      if (event.paymentType === 'paid' && event.price > 0) {
+        // Paid event - create payment intent
+        setIsProcessingPayment(true);
+        const paymentResponse: PaymentIntentResponse = await createPaymentIntent(eventId, quantity);
+        
+        if (paymentResponse.success) {
+          toast.success('Payment intent created! Redirecting to payment...');
+          // Redirect to booking confirmation page
+          router.push(`/bookings/${paymentResponse.data.bookingId}/confirm`);
+        } else {
+          toast.error(paymentResponse.message || 'Failed to create payment intent');
+        }
+      } else {
+        // Free event - join directly
+        const response = await joinEvent(eventId);
+        
+        // Update local state with response data
+        setEvent(response.data);
+        setIsJoined(true);
+        toast.success(response.message);
+      }
     } catch (error: any) {
       console.error('Failed to join event:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to join event';
+      
+      // Handle specific duplicate booking error
+      if (error.response?.data?.message?.includes('E11000') || 
+          error.response?.data?.message?.includes('duplicate key') ||
+          error.response?.data?.message?.includes('already booked')) {
+        toast.error('You have already booked this event. Check your bookings in your dashboard.');
+        return;
+      }
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to join event';
       toast.error(errorMessage);
     } finally {
       setIsJoining(false);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -347,9 +439,23 @@ export default function EventDetailsPage() {
                       <div className="bg-amber-500 rounded-lg p-2 mr-4">
                         <DollarSign className="h-6 w-6 text-white" />
                       </div>
-                      <span className="font-semibold text-gray-900">
-                        {event.price > 0 ? `$${event.price} per person` : 'Free Event'}
-                      </span>
+                      <div className="flex-1">
+                        <span className="font-semibold text-gray-900 block">
+                          {event.paymentType === 'free' || event.price === 0 ? 'Free Event' : `$${event.price} per person`}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {event.paymentType === 'free' || event.price === 0 ? 'No payment required' : 'Payment required to join'}
+                        </span>
+                      </div>
+                      {event.paymentType === 'free' || event.price === 0 ? (
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          FREE
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                          PAID
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -427,14 +533,19 @@ export default function EventDetailsPage() {
                       {isJoining ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Joining...
+                          {isProcessingPayment ? 'Creating Payment...' : 'Joining...'}
                         </>
                       ) : isFull ? (
                         'Event Full'
+                      ) : isJoined ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Already Booked
+                        </>
                       ) : (
                         <>
                           <UserCheck className="h-4 w-4 mr-2" />
-                          Join Event
+                          {event.paymentType === 'paid' && event.price > 0 ? `Book $${(event.price * quantity).toFixed(2)}` : 'Join Event'}
                         </>
                       )}
                     </Button>
@@ -674,11 +785,20 @@ export default function EventDetailsPage() {
             <Card className="top-6 border-0 shadow-xl bg-white overflow-hidden">
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
                 <CardTitle className="text-2xl font-bold text-white">
-                  {event.price > 0 ? `$${event.price}` : 'Free'}
+                  {event.paymentType === 'free' || event.price === 0 ? 'Free' : `$${event.price}`}
                 </CardTitle>
                 <CardDescription className="text-blue-100 mt-1">
-                  {event.price > 0 ? 'Per person' : 'No cost to join'}
+                  {event.paymentType === 'free' || event.price === 0 ? 'No cost to join' : 'Per person'}
                 </CardDescription>
+                {event.paymentType === 'free' || event.price === 0 ? (
+                  <Badge className="mt-2 bg-green-100 text-green-800 border-green-200">
+                    FREE EVENT
+                  </Badge>
+                ) : (
+                  <Badge className="mt-2 bg-blue-100 text-blue-800 border-blue-200">
+                    PAID EVENT
+                  </Badge>
+                )}
               </div>
               <CardContent className="p-6 space-y-6">
                 <div className="space-y-4">
@@ -751,26 +871,70 @@ export default function EventDetailsPage() {
                       </div>
                     </div>
                   ) : (
-                    <Button 
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3" 
-                      size="lg"
-                      onClick={handleJoinEvent}
-                      disabled={isFull || isJoining}
-                    >
-                      {isJoining ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Joining...
-                        </>
-                      ) : isFull ? (
-                        'Event Full'
-                      ) : (
-                        <>
-                          <UserCheck className="h-4 w-4 mr-2" />
-                          Join Event
-                        </>
+                    <>
+                      {/* Quantity selector for paid events */}
+                      {event.paymentType === 'paid' && event.price > 0 && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Number of Tickets
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                              disabled={quantity <= 1}
+                              className="h-10 w-10 p-0"
+                            >
+                              -
+                            </Button>
+                            <span className="w-12 text-center font-semibold">
+                              {quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setQuantity(Math.min(spotsLeft, quantity + 1))}
+                              disabled={quantity >= spotsLeft}
+                              className="h-10 w-10 p-0"
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Total: ${(event.price * quantity).toFixed(2)}
+                          </p>
+                        </div>
                       )}
-                    </Button>
+                      
+                      <Button 
+                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3" 
+                        size="lg"
+                        onClick={handleJoinEvent}
+                        disabled={isFull || isJoining}
+                      >
+                        {isJoining ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {isProcessingPayment ? 'Creating Payment...' : 'Joining...'}
+                          </>
+                        ) : isFull ? (
+                          'Event Full'
+                        ) : isJoined ? (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Already Booked
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            {event.paymentType === 'paid' ? `Book Now - $${(event.price * quantity).toFixed(2)}` : 'Join Event'}
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
                 

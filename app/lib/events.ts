@@ -20,6 +20,7 @@ export interface Event {
   maxParticipants: number;
   currentParticipants: number;
   price: number;
+  paymentType: 'free' | 'paid';
   image: string;
   images: string[];
   requirements: string[];
@@ -129,10 +130,47 @@ export const getEvents = async (params?: {
 };
 
 export const getEventById = async (eventId: string): Promise<Event> => {
+  // Validate event ID format
+  if (!eventId || typeof eventId !== 'string' || eventId.trim() === '') {
+    throw new Error('Event ID is required and must be a string');
+  }
+
+  // Check for valid ObjectId format (24-character hex string)
+  // If it's not a valid ObjectId, we'll still try the request but handle the error gracefully
+  if (!/^[0-9a-fA-F]{24}$/.test(eventId)) {
+    console.warn('Invalid event ID format:', eventId);
+  }
+
   try {
+    console.log('Making request to:', `/events/${eventId}`);
     const response = await api.get(`/events/${eventId}`);
+    
+    if (!response.data) {
+      throw new Error('No data received from server');
+    }
+
+    if (!response.data.data) {
+      throw new Error('Event not found');
+    }
+    
     return response.data.data;
   } catch (error: any) {
+    console.error('API Error Details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.response?.data?.message || error.message,
+      url: `/events/${eventId}`
+    });
+    
+    // Provide more specific error messages
+    if (error.response?.status === 400) {
+      throw new Error('Invalid event ID or event not found');
+    } else if (error.response?.status === 404) {
+      throw new Error('Event not found');
+    } else if (error.response?.status === 500) {
+      throw new Error('Server error. Please try again later');
+    }
+    
     throw error;
   }
 };

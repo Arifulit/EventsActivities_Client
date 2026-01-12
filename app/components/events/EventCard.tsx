@@ -137,14 +137,16 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
           </Badge>
         </div>
         
-        {/* Price badge */}
-        {currentEvent.price > 0 && (
-          <div className="absolute bottom-3 right-3">
-            <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
+        {/* Price/Payment Type badge */}
+        <div className="absolute bottom-3 right-3">
+          <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
+            {currentEvent.paymentType === 'free' || currentEvent.price === 0 ? (
+              <span className="text-sm font-bold text-green-600">FREE</span>
+            ) : (
               <span className="text-sm font-bold text-green-600">${currentEvent.price}</span>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <CardHeader className="pb-4">
@@ -205,7 +207,7 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
               <div className="p-1.5 bg-green-100 rounded-lg">
                 <Users className="w-4 h-4 text-green-600" />
               </div>
-              <span className="font-medium">{currentEvent.currentParticipants}/{currentEvent.maxParticipants}</span>
+              <span className="font-medium">{currentEvent.currentParticipants || 0}/{currentEvent.maxParticipants || 0}</span>
             </div>
             <span className="text-xs text-gray-500">
               {spotsLeft === 0 ? 'Full' : `${spotsLeft} spots left`}
@@ -216,13 +218,13 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
               className={`h-full transition-all duration-500 ${
                 isAlmostFull ? 'bg-red-500' : spotsLeft <= 10 ? 'bg-yellow-500' : 'bg-green-500'
               }`}
-              style={{ width: `${(currentEvent.currentParticipants / currentEvent.maxParticipants) * 100}%` }}
+              style={{ width: `${currentEvent.maxParticipants ? (currentEvent.currentParticipants || 0) / currentEvent.maxParticipants * 100 : 0}%` }}
             />
           </div>
         </div>
 
         {/* Tags */}
-        {currentEvent.tags.length > 0 && (
+        {currentEvent.tags && currentEvent.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {currentEvent.tags.slice(0, 3).map((tag, index) => (
               <Badge key={index} variant="secondary" className="text-xs bg-gray-100 hover:bg-gray-200 transition-colors">

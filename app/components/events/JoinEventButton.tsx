@@ -6,16 +6,13 @@ import { joinEvent as joinEventAction, leaveEvent as leaveEventAction } from '@/
 import { Event } from '@/app/lib/events';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { toast } from 'react-hot-toast';
 import { 
   UserPlus, 
   UserMinus, 
   Loader2, 
-  CheckCircle2, 
   Users, 
   DollarSign,
-  CreditCard,
   AlertCircle
 } from 'lucide-react';
 
@@ -40,7 +37,6 @@ export default function JoinEventButton({
 }: JoinEventButtonProps) {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   // Early return if user is not available
   if (!user) {
@@ -57,7 +53,14 @@ export default function JoinEventButton({
     (typeof event.hostId === 'string' && event.hostId === user._id)
   );
   
-  const isJoined = user?._id && event.participants.includes(user._id);
+  const isJoined = user?._id && event.participants && event.participants.some(participant => {
+    if (typeof participant === 'string') {
+      return participant === user._id;
+    } else if (participant && typeof participant === 'object' && participant._id) {
+      return participant._id === user._id;
+    }
+    return false;
+  });
   const isFull = event.currentParticipants >= event.maxParticipants;
   const isPastEvent = new Date(event.date) < new Date();
   const isPaidEvent = event.price > 0;
@@ -83,13 +86,7 @@ export default function JoinEventButton({
       return;
     }
 
-    // For paid events, show payment dialog
-    if (isPaidEvent) {
-      setShowPaymentDialog(true);
-      return;
-    }
-
-    // For free events, join directly
+    // Join directly without payment dialog
     await performJoin();
   };
 
@@ -101,7 +98,6 @@ export default function JoinEventButton({
       toast.success(response.message);
       onJoinSuccess?.(response);
       onUpdate?.(response.data);
-      setShowPaymentDialog(false);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to join event';
       toast.error(errorMessage);
@@ -187,86 +183,28 @@ export default function JoinEventButton({
     );
   }
 
-  // Join button with payment dialog for paid events
+  // Join button - direct join without payment dialog
   return (
-    <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-      <DialogTrigger asChild>
-        <Button
-          variant={variant}
-          size={size}
-          onClick={handleJoinEvent}
-          disabled={isLoading}
-          className={className}
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-          ) : (
-            <UserPlus className="w-4 h-4 mr-2" />
-          )}
-          {isPaidEvent ? (
-            <>
-              <DollarSign className="w-4 h-4 mr-1" />
-              Join - ${event.price}
-            </>
-          ) : (
-            'Join Event'
-          )}
-        </Button>
-      </DialogTrigger>
-      
-      {isPaidEvent && (
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Complete Your Registration</DialogTitle>
-            <DialogDescription>
-              This event requires a payment of ${event.price} to join. Complete the payment below to secure your spot.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {/* Event Summary */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium mb-2">{event.title}</h4>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>Date: {new Date(event.date).toLocaleDateString()}</p>
-                <p>Time: {event.time}</p>
-                <p>Location: {event.location.venue}</p>
-                <p>Price: ${event.price}</p>
-              </div>
-            </div>
-            
-            {/* Payment Options */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Payment Method:</p>
-              
-              <Button
-                onClick={performJoin}
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <CreditCard className="w-4 h-4 mr-2" />
-                )}
-                Pay ${event.price} with Card
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={() => setShowPaymentDialog(false)}
-                className="w-full"
-              >
-                Cancel
-              </Button>
-            </div>
-            
-            <p className="text-xs text-gray-500 text-center">
-              Your payment is secure and encrypted. You'll receive a confirmation email after successful payment.
-            </p>
-          </div>
-        </DialogContent>
+    <Button
+      variant={variant}
+      size={size}
+      onClick={handleJoinEvent}
+      disabled={isLoading}
+      className={className}
+    >
+      {isLoading ? (
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+      ) : (
+        <UserPlus className="w-4 h-4 mr-2" />
       )}
-    </Dialog>
+      {isPaidEvent ? (
+        <>
+          <DollarSign className="w-4 h-4 mr-1" />
+          Join - ${event.price}
+        </>
+      ) : (
+        'Join Event'
+      )}
+    </Button>
   );
 }

@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { fetchUserJoinedEvents } from '@/lib/api';
+import { Calendar, MapPin, Users, Clock, CheckCircle, AlertCircle, Loader2, UserMinus } from 'lucide-react';
+import { fetchUserJoinedEvents, leaveEvent } from '@/lib/api';
 import { getUserData } from '@/app/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface JoinedEvent {
   _id: string;
@@ -34,6 +35,7 @@ export default function JoinedEventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+  const [leavingEventId, setLeavingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     // Get userId from auth utilities
@@ -74,6 +76,24 @@ export default function JoinedEventsPage() {
       fetchJoinedEventsData();
     }
   }, [userId, activeTab]);
+
+  const handleLeaveEvent = async (eventId: string) => {
+    if (!userId) return;
+    
+    setLeavingEventId(eventId);
+    try {
+      const response = await leaveEvent(eventId);
+      toast.success(response.message || 'Successfully left the event');
+      
+      // Remove the event from the local state
+      setJoinedEvents(prevEvents => prevEvents.filter(event => event._id !== eventId));
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to leave event';
+      toast.error(errorMessage);
+    } finally {
+      setLeavingEventId(null);
+    }
+  };
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -220,8 +240,24 @@ export default function JoinedEventsPage() {
                       View Details
                     </Button>
                     {(event.status === 'upcoming' || !event.status) && (
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                        Cancel Booking
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleLeaveEvent(event._id)}
+                        disabled={leavingEventId === event._id}
+                      >
+                        {leavingEventId === event._id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Leaving...
+                          </>
+                        ) : (
+                          <>
+                            <UserMinus className="w-4 h-4 mr-2" />
+                            Leave Event
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>

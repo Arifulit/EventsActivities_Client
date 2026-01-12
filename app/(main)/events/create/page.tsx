@@ -23,6 +23,7 @@ export default function CreateEventPage() {
     time: '',
     duration: 120,
     price: 0,
+    paymentType: 'free' as 'free' | 'paid',
     maxParticipants: 10,
     venue: '',
     address: '',
@@ -71,6 +72,15 @@ export default function CreateEventPage() {
       [name]: value
     }));
 
+    // Auto-update price based on payment type
+    if (name === 'paymentType') {
+      setFormData(prev => ({
+        ...prev,
+        paymentType: value as 'free' | 'paid',
+        price: value === 'free' ? 0 : prev.price
+      }));
+    }
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -78,6 +88,14 @@ export default function CreateEventPage() {
         [name]: ''
       }));
     }
+  };
+
+  const handlePaymentTypeChange = (value: 'free' | 'paid') => {
+    setFormData(prev => ({
+      ...prev,
+      paymentType: value,
+      price: value === 'free' ? 0 : prev.price || 10
+    }));
   };
 
   const validateForm = () => {
@@ -121,8 +139,13 @@ export default function CreateEventPage() {
       newErrors.maxParticipants = 'Maximum participants must be at least 1';
     }
 
-    if (formData.price < 0) {
-      newErrors.price = 'Price cannot be negative';
+    if (formData.paymentType === 'paid') {
+      if (formData.price <= 0) {
+        newErrors.price = 'Price must be greater than 0 for paid events';
+      }
+    } else {
+      // Free events should have price set to 0
+      setFormData(prev => ({ ...prev, price: 0 }));
     }
 
     setErrors(newErrors);
@@ -183,6 +206,7 @@ export default function CreateEventPage() {
         time: formData.time,
         duration: formData.duration,
         price: formData.price,
+        paymentType: formData.paymentType,
         maxParticipants: formData.maxParticipants,
         location: {
           venue: formData.venue,
@@ -539,30 +563,64 @@ export default function CreateEventPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                    Price (USD)
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Type *
                   </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="price"
-                      name="price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      className={`pl-10 ${errors.price ? 'border-red-500' : ''}`}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentTypeChange('free')}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${
+                        formData.paymentType === 'free'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-lg font-semibold">Free Event</div>
+                      <div className="text-sm text-gray-600 mt-1">No cost to attend</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentTypeChange('paid')}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${
+                        formData.paymentType === 'paid'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-lg font-semibold">Paid Event</div>
+                      <div className="text-sm text-gray-600 mt-1">Requires payment</div>
+                    </button>
                   </div>
-                  {errors.price && (
-                    <p className="text-red-500 text-sm mt-1">{errors.price}</p>
-                  )}
-                  <p className="text-sm text-gray-500 mt-1">
-                    Set 0 for free events
-                  </p>
                 </div>
+
+                {formData.paymentType === 'paid' && (
+                  <div>
+                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
+                      Price (USD) *
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        id="price"
+                        name="price"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={handleChange}
+                        placeholder="10.00"
+                        className={`pl-10 ${errors.price ? 'border-red-500' : ''}`}
+                      />
+                    </div>
+                    {errors.price && (
+                      <p className="text-red-500 text-sm mt-1">{errors.price}</p>
+                    )}
+                    <p className="text-sm text-gray-500 mt-1">
+                      Set the price per person for this paid event
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

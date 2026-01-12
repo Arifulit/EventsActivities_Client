@@ -19,13 +19,30 @@ export async function POST(
     }
 
     // Call backend API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${id}/leave`, {
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/events/${id}/leave`;
+    console.log('Calling backend API:', backendUrl);
+    
+    const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
+
+    // Check if response is HTML (error page) instead of JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const htmlText = await response.text();
+      console.error('Backend returned HTML instead of JSON:', htmlText.substring(0, 200));
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Backend API is not responding correctly. Please ensure backend server is running.' 
+        },
+        { status: 503 }
+      );
+    }
 
     const data = await response.json();
 

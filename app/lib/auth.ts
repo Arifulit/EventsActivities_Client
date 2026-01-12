@@ -1,5 +1,39 @@
 import { User } from '@/types/auth';
 
+// Custom JWT types for our auth implementation
+interface CustomToken {
+  id?: string;
+  [key: string]: any;
+}
+
+interface CustomUser {
+  id: string;
+  [key: string]: any;
+}
+
+// NextAuth configuration for server-side auth
+export const authOptions = {
+  providers: [], // Add providers if needed
+  session: {
+    strategy: 'jwt' as const,
+  },
+  callbacks: {
+    async jwt({ token, user }: { token: CustomToken; user?: CustomUser }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: any; token: CustomToken }) {
+      if (token) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+  },
+  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+};
+
 export interface LoginData {
   email: string;
   password: string;

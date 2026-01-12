@@ -1,4 +1,5 @@
 import api from './api';
+import { getAuthToken } from './auth';
 
 export interface CreatePaymentIntentRequest {
   eventId: string;
@@ -46,6 +47,8 @@ export interface BookingResponse {
 export interface PaymentConfirmationRequest {
   bookingId: string;
   paymentIntentId: string;
+  paymentMethodId?: string;
+  returnUrl?: string;
 }
 
 export interface PaymentConfirmationResponse {
@@ -61,34 +64,30 @@ export interface PaymentConfirmationResponse {
   timestamp: string;
 }
 
-export const confirmPayment = async (bookingId: string, paymentIntentId: string): Promise<PaymentConfirmationResponse> => {
+export const confirmPayment = async (
+  bookingId: string, 
+  paymentIntentId: string, 
+  paymentMethodId?: string,
+  returnUrl?: string
+): Promise<PaymentConfirmationResponse> => {
   try {
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
+    // Get token using the auth system
+    const token = getAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch('/api/payments/confirm', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bookingId,
-        paymentIntentId
-      }),
-    });
+    const requestData: PaymentConfirmationRequest = {
+      bookingId,
+      paymentIntentId,
+      ...(paymentMethodId && { paymentMethodId }),
+      ...(returnUrl && { returnUrl })
+    };
     
-    const data = await response.json();
+    const response = await api.post('/payments/confirm', requestData);
     
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to confirm payment');
-    }
-    
-    return data;
+    return response.data;
   } catch (error: any) {
     console.error('Error confirming payment:', error);
     throw error;
@@ -97,63 +96,64 @@ export const confirmPayment = async (bookingId: string, paymentIntentId: string)
 
 export const createPaymentIntent = async (eventId: string, quantity: number): Promise<PaymentIntentResponse> => {
   try {
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
+    // Get token using the auth system
+    const token = getAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch('/api/payments/create-intent', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        eventId,
-        quantity
-      }),
+    console.log('Creating payment intent with:', { eventId, quantity });
+    
+    const response = await api.post('/payments/create-intent', {
+      eventId,
+      quantity
     });
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to create payment intent');
-    }
-    
-    return data;
+    console.log('Payment intent response:', response.data);
+    return response.data;
   } catch (error: any) {
     console.error('Error creating payment intent:', error);
-    throw error;
+    console.error('Error response data:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    console.error('Error code:', error.code);
+    
+    // Handle network errors or when backend is not running
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      throw new Error('Cannot connect to server. Please ensure the backend server is running.');
+    }
+    
+    // Handle HTML responses (error pages)
+    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE')) {
+      throw new Error('Server is not responding correctly. Please try again later.');
+    }
+    
+    // Handle specific 500 errors
+    if (error.response?.status === 500) {
+      throw new Error('Server error occurred. Please try again later or contact support.');
+    }
+    
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to create payment intent';
+    throw new Error(errorMessage);
   }
 };
 
 export const confirmBooking = async (data: PaymentConfirmationRequest): Promise<BookingResponse> => {
   try {
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
+    // Get token using the auth system
+    const token = getAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch('/api/payments/confirm', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    console.log('Confirming booking with data:', data);
+    console.log('Auth token present:', !!token);
     
-    const responseData = await response.json();
+    const response = await api.post('/payments/confirm', data);
     
-    if (!response.ok) {
-      throw new Error(responseData.message || 'Failed to confirm booking');
-    }
-    
-    return responseData;
+    console.log('Booking confirmation response:', response.data);
+    return response.data;
   } catch (error: any) {
     console.error('Error confirming booking:', error);
     throw error;

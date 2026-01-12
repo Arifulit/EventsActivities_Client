@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Badge } from '@/app/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { Loader2, Search, Calendar as CalendarIcon, MapPin, Users as UsersIcon, DollarSign, Star, Filter, Sparkles, TrendingUp, Clock, Heart, Leaf } from 'lucide-react';
+import { Loader2, Search, Calendar as CalendarIcon, MapPin, Users as UsersIcon, DollarSign, Star, Filter, Sparkles, TrendingUp, Clock, Heart, Leaf, ArrowUpRight, Globe, Zap, Target, Award, Compass } from 'lucide-react';
 import EventCard from '@/app/components/events/EventCard';
 import { getEvents, type Event } from '@/app/lib/events';
 import ProfessionalSearch from '@/components/search/ProfessionalSearch';
@@ -49,11 +49,12 @@ export default function EventsPage() {
         
         // Load initial events without filters
         const eventsData = await getEvents();
-        setEvents(eventsData);
+        setEvents(eventsData || []);
         setHasSearched(true);
       } catch (err) {
         console.error('Error loading events:', err);
         setError(err instanceof Error ? err.message : 'Failed to load events');
+        setEvents([]); // Ensure events is always an array
       } finally {
         setLoading(false);
       }
@@ -82,7 +83,7 @@ export default function EventsPage() {
       
       // Call API with filters
       const eventsData = await getEvents(params);
-      setEvents(eventsData);
+      setEvents(eventsData || []);
       
       // Update URL
       const urlParams = new URLSearchParams();
@@ -94,6 +95,7 @@ export default function EventsPage() {
     } catch (err) {
       console.error('Error searching events:', err);
       setError(err instanceof Error ? err.message : 'Failed to search events');
+      setEvents([]); // Ensure events is always an array
     } finally {
       setLoading(false);
     }
@@ -124,17 +126,17 @@ export default function EventsPage() {
   };
 
   // Sort events by date (upcoming first)
-  const sortedEvents = [...events].sort((a, b) => {
+  const sortedEvents = (events || []).sort((a, b) => {
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
     return dateA.getTime() - dateB.getTime();
   });
 
   // Get stats for the page
-  const totalEvents = events.length;
-  const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).length;
-  const todayEvents = events.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length;
-  const popularEvents = events.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length;
+  const totalEvents = events?.length || 0;
+  const upcomingEvents = (events || []).filter(e => new Date(e.date) > new Date()).length;
+  const todayEvents = (events || []).filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length;
+  const popularEvents = (events || []).filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length;
 
   if (loading) {
     return (
@@ -164,17 +166,28 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-      {/* Hero Section */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
+      {/* Professional Header */}
      
-      <div className="container mx-auto py-12 px-4">
+
         {/* Search and Filters Section */}
-        <Card className="mb-12 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-8">
-            <div className="flex items-center gap-3 mb-8">
-              <Filter className="w-6 h-6 text-green-600" />
-              <h2 className="text-xl font-bold text-gray-800">Search & Filter Events</h2>
-            </div>
+        <div className="container mx-auto px-4 py-8">
+          <Card className="border-0 shadow-xl bg-white rounded-2xl">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-emerald-100 rounded-xl">
+                    <Search className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Find Your Perfect Event</h2>
+                    <p className="text-gray-600">Search and filter events that match your interests</p>
+                  </div>
+                </div>
+                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 px-4 py-2">
+                  {events.length} events found
+                </Badge>
+              </div>
             
             <form onSubmit={handleSearch}>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
@@ -238,10 +251,10 @@ export default function EventsPage() {
                 </div>
               </div>
               
-              <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
+              <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
                 <Button 
                   type="submit" 
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700"
+                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
                   disabled={loading}
                 >
                   {loading ? (
@@ -260,65 +273,65 @@ export default function EventsPage() {
                   type="button" 
                   variant="outline" 
                   onClick={resetFilters} 
-                  className="px-6 py-3 border-gray-200 hover:bg-gray-50"
+                  className="px-8 py-3 border-gray-300 hover:bg-gray-50 font-medium transition-all duration-300"
                 >
                   Reset Filters
                 </Button>
-                <div className="flex items-center gap-2 text-base text-gray-500 ml-auto">
-                  <span>{events.length} events found</span>
-                </div>
               </div>
             </form>
           </CardContent>
         </Card>
 
         {/* Events Grid Section */}
-        {sortedEvents.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="max-w-lg mx-auto">
-              <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-8">
-                <CalendarIcon className="w-16 h-16 text-gray-400" />
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-4">No events found</h3>
-              <p className="text-lg text-gray-600 mb-8">
-                {filters.search || filters.type !== 'all' || filters.location || filters.status !== 'open'
-                  ? 'Try adjusting your filters to find more events.'
-                  : 'There are no events available at the moment. Check back later!'}
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button 
-                  variant="outline" 
-                  onClick={resetFilters}
-                  className="px-8 py-3 border-gray-200 hover:bg-gray-50"
-                >
-                  Clear Filters
-                </Button>
-                <Link href="/events/create">
-                  <Button className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                    Create Event
+        <div className="container mx-auto px-4 py-8">
+          {sortedEvents.length === 0 ? (
+            <div className="text-center py-24">
+              <div className="max-w-lg mx-auto">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <CalendarIcon className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-3xl font-bold text-gray-900 mb-4">No events found</h3>
+                <p className="text-lg text-gray-600 mb-8">
+                  {filters.search || filters.type !== 'all' || filters.location || filters.status !== 'open'
+                    ? 'Try adjusting your filters to find more events.'
+                    : 'There are no events available at the moment. Check back later!'}
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={resetFilters}
+                    className="px-8 py-3 border-gray-300 hover:bg-gray-50 font-medium"
+                  >
+                    Clear Filters
                   </Button>
-                </Link>
+                  <Link href="/events/create">
+                    <Button className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-lg">
+                      Create Event
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
         ) : (
           <div className="space-y-16">
             {/* Featured Events - Happening Today */}
             {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length > 0 && (
               <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-red-100 rounded-xl">
-                    <Clock className="w-6 h-6 text-red-600" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-red-100 rounded-xl">
+                      <Clock className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-900">Happening Today</h2>
+                      <p className="text-gray-600">Events scheduled for today</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-3xl font-bold text-gray-900">Happening Today</h2>
-                    <p className="text-gray-600 mt-1">Events scheduled for today</p>
-                  </div>
-                  <Badge className="bg-red-100 text-red-700 px-4 py-2 text-base font-medium">
+                  <Badge className="bg-red-100 text-red-700 border-red-200 px-4 py-2">
                     {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length} events
                   </Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).map((event) => (
                     <EventCard
                       key={event._id}
@@ -335,19 +348,21 @@ export default function EventsPage() {
             {/* Popular Events Section */}
             {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length > 0 && (
               <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-100 rounded-xl">
-                    <TrendingUp className="w-6 h-6 text-orange-600" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-100 rounded-xl">
+                      <TrendingUp className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-900">Popular Events</h2>
+                      <p className="text-gray-600">Trending events with high attendance</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-3xl font-bold text-gray-900">Popular Events</h2>
-                    <p className="text-gray-600 mt-1">Trending events with high attendance</p>
-                  </div>
-                  <Badge className="bg-orange-100 text-orange-700 px-4 py-2 text-base font-medium">
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 px-4 py-2">
                     {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length} events
                   </Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).slice(0, 6).map((event) => (
                     <EventCard
                       key={event._id}
@@ -363,19 +378,21 @@ export default function EventsPage() {
 
             {/* All Events Section */}
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <CalendarIcon className="w-6 h-6 text-green-600" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-emerald-100 rounded-xl">
+                    <CalendarIcon className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">All Events</h2>
+                    <p className="text-gray-600">Browse all available events</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-3xl font-bold text-gray-900">All Events</h2>
-                  <p className="text-gray-600 mt-1">Browse all available events</p>
-                </div>
-                <Badge className="bg-green-100 text-green-700 px-4 py-2 text-base font-medium">
+                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 px-4 py-2">
                   {sortedEvents.length} events
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedEvents.map((event) => (
                   <EventCard
                     key={event._id}
@@ -389,6 +406,7 @@ export default function EventsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { Calendar, DollarSign, MapPin, Users, Loader2, CreditCard, Info } from 'lucide-react';
-import { fetchUserBookings, confirmPayment } from '@/lib/api';
+import { Calendar, DollarSign, MapPin, Users, Loader2, CreditCard, Info, Clock, ArrowUpRight, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { getMyBookings, confirmPayment } from '@/app/lib/api';
 
 interface Booking {
   _id: string;
@@ -76,7 +76,7 @@ export default function UserMyBookingsPage() {
     const fetchBookingsData = async () => {
       try {
         setLoading(true);
-        const data = await fetchUserBookings();
+        const data = await getMyBookings();
         
         const bookingsData = data.data || [];
         setBookings(bookingsData);
@@ -133,7 +133,7 @@ export default function UserMyBookingsPage() {
       
       if (result.success) {
         // Refresh bookings to get updated status
-        const data = await fetchUserBookings();
+        const data = await getMyBookings();
         setBookings(data.data || []);
         alert('Payment completed successfully!');
       } else {
@@ -190,57 +190,85 @@ export default function UserMyBookingsPage() {
     );
   }
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h2>
+            <p className="text-gray-600 text-lg">Manage your event bookings and payments</p>
+          </div>
+          <div className="hidden md:block">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100">
+              <div className="flex items-center gap-2 text-blue-600">
+                <Calendar className="w-5 h-5" />
+                <span className="font-semibold">{stats.totalBookings} Total Bookings</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-semibold text-blue-900">Total Bookings</CardTitle>
+            <div className="bg-blue-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
+              <Calendar className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.upcomingEvents} upcoming events
-            </p>
+            <div className="text-3xl font-bold text-blue-900 mb-1">{stats.totalBookings}</div>
+            <div className="flex items-center gap-1 text-xs text-blue-600">
+              <ArrowUpRight className="w-3 h-3" />
+              <span>{stats.upcomingEvents} upcoming events</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-emerald-50 to-green-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-semibold text-emerald-900">Total Spent</CardTitle>
+            <div className="bg-emerald-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
+              <DollarSign className="h-4 w-4 text-emerald-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalSpent}</div>
-            <p className="text-xs text-muted-foreground">
-              This month: ${stats.monthlySpent}
-            </p>
+            <div className="text-3xl font-bold text-emerald-900 mb-1">${stats.totalSpent}</div>
+            <div className="flex items-center gap-1 text-xs text-emerald-600">
+              <TrendingUp className="w-3 h-3" />
+              <span>This month: ${stats.monthlySpent}</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Events Attended</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+        <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-purple-50 to-pink-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-semibold text-purple-900">Events Attended</CardTitle>
+            <div className="bg-purple-100 p-2 rounded-lg group-hover:scale-110 transition-transform">
+              <Users className="h-4 w-4 text-purple-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.eventsAttended}</div>
-            <p className="text-xs text-muted-foreground">
-              Great attendance!
-            </p>
+            <div className="text-3xl font-bold text-purple-900 mb-1">{stats.eventsAttended}</div>
+            <div className="flex items-center gap-1 text-xs text-purple-600">
+              <CheckCircle className="w-3 h-3" />
+              <span>Great attendance!</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Bookings</CardTitle>
+      {/* Bookings List */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="border-b bg-gray-50">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            All Bookings
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="space-y-4">
             {bookings.length > 0 ? (
               bookings.map((booking) => {
@@ -248,87 +276,117 @@ export default function UserMyBookingsPage() {
                 const isUpcoming = eventDate > new Date();
                 
                 return (
-                  <div key={booking._id} className={`flex items-center justify-between p-4 border rounded-lg ${!isUpcoming ? 'opacity-75' : ''}`}>
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 ${isUpcoming ? 'bg-blue-100' : 'bg-gray-100'} rounded-full flex items-center justify-center`}>
-                        <Calendar className={`w-5 h-5 ${isUpcoming ? 'text-blue-600' : 'text-gray-600'}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium">{booking.eventId.title}</p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {eventDate.toLocaleDateString()}
-                          </span>
-                          <span className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {booking.eventId.location.city}
-                          </span>
+                  <div key={booking._id} className={`group border rounded-xl transition-all duration-300 ${!isUpcoming ? 'bg-gray-50 border-gray-200 opacity-75' : 'bg-white border-gray-200 hover:shadow-md hover:border-blue-300'}`}>
+                    <div className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4">
+                          <div className={`w-12 h-12 ${isUpcoming ? 'bg-gradient-to-br from-blue-100 to-indigo-100' : 'bg-gray-100'} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                            <Calendar className={`w-6 h-6 ${isUpcoming ? 'text-blue-600' : 'text-gray-600'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{booking.eventId.title}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                                {eventDate.toLocaleDateString()}
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Clock className="w-4 h-4 mr-2 text-blue-500" />
+                                {booking.eventId.time}
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <MapPin className="w-4 h-4 mr-2 text-blue-500" />
+                                {booking.eventId.location.city}, {booking.eventId.location.venue}
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Users className="w-4 h-4 mr-2 text-blue-500" />
+                                {booking.quantity} ticket{booking.quantity > 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Badge 
+                                variant={booking.status === 'confirmed' ? 'default' : 
+                                       booking.status === 'pending' ? 'secondary' : 'destructive'}
+                                className="text-xs font-medium"
+                              >
+                                {booking.status === 'confirmed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                {booking.status === 'pending' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                              </Badge>
+                              <Badge 
+                                variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'}
+                                className="text-xs font-medium"
+                              >
+                                {booking.paymentStatus === 'paid' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                Payment: {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
+                              </Badge>
+                              {isUpcoming && (
+                                <Badge variant="outline" className="text-xs font-medium text-blue-600 border-blue-200">
+                                  Upcoming
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge 
-                            variant={booking.status === 'confirmed' ? 'default' : 
-                                   booking.status === 'pending' ? 'secondary' : 'destructive'}
-                            className="text-xs"
-                          >
-                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                          </Badge>
-                          <Badge 
-                            variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            Payment: {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">${booking.amount}</p>
-                      <p className="text-sm text-gray-500">Qty: {booking.quantity}</p>
-                      <p className="text-xs text-gray-400">Booking ID: {booking._id}</p>
-                      <div className="mt-2 space-y-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(booking._id)}
-                          className="w-full"
-                        >
-                          <Info className="w-4 h-4 mr-2" />
-                          View Details
-                        </Button>
-                        {booking.paymentStatus === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handlePaymentCompletion(booking._id, booking.paymentIntentId)}
-                            disabled={processingPayment === booking._id}
-                            className="bg-green-600 hover:bg-green-700 w-full"
-                          >
-                            {processingPayment === booking._id ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Processing...
-                              </>
-                            ) : (
-                              <>
-                                <CreditCard className="w-4 h-4 mr-2" />
-                                Complete Payment
-                              </>
+                        <div className="text-right">
+                          <div className="mb-3">
+                            <p className="text-2xl font-bold text-gray-900">${booking.amount}</p>
+                            <p className="text-sm text-gray-500">{booking.quantity} ticket{booking.quantity > 1 ? 's' : ''}</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewDetails(booking._id)}
+                              className="w-full group hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            >
+                              <Info className="w-4 h-4 mr-2" />
+                              View Details
+                              <ArrowUpRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Button>
+                            {booking.paymentStatus === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handlePaymentCompletion(booking._id, booking.paymentIntentId)}
+                                disabled={processingPayment === booking._id}
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 w-full transition-all duration-300"
+                              >
+                                {processingPayment === booking._id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CreditCard className="w-4 h-4 mr-2" />
+                                    Complete Payment
+                                  </>
+                                )}
+                              </Button>
                             )}
-                          </Button>
-                        )}
-                        {booking.paymentIntentId && (
-                          <p className="text-xs text-gray-500">
-                            Payment ID: {booking.paymentIntentId}
-                          </p>
-                        )}
+                          </div>
+                          {booking.paymentIntentId && (
+                            <p className="text-xs text-gray-400 mt-2">Payment ID: {booking.paymentIntentId}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                No bookings found
+              <div className="text-center py-16">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No bookings found</h3>
+                <p className="text-gray-600 mb-4">You haven't booked any events yet</p>
+                <Button 
+                  onClick={() => router.push('/events')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Explore Events
+                </Button>
               </div>
             )}
           </div>

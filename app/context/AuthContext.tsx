@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success('Logged out successfully');
       
       // Force redirect to login page
-      router.push('/auth/login');
+      router.push('/login');
       
       // Optional: Clear any other app-specific data
       if (typeof window !== 'undefined') {
@@ -164,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout error:', error);
       // Even if there's an error, try to redirect to login
-      router.push('/auth/login');
+      router.push('/login');
     }
   };
 

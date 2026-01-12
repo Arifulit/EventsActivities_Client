@@ -10,8 +10,10 @@ const api = axios.create({
 });
 
 // Log the base URL for debugging
-console.log('API Base URL:', api.defaults.baseURL);
-console.log('Environment NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+if (typeof window !== 'undefined') {
+  console.log('API Base URL:', api.defaults.baseURL);
+  console.log('Environment NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+}
 
 api.interceptors.request.use((config) => {
   const token = getAuthToken();
@@ -19,25 +21,45 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  // Log request details for debugging
-  console.log('API Request:', {
-    url: config.url,
-    method: config.method,
-    hasToken: !!token,
-    baseURL: config.baseURL
-  });
+  // Log request details for debugging only in development
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    console.log('API Request:', {
+      url: config.url,
+      method: config.method,
+      hasToken: !!token,
+      baseURL: config.baseURL
+    });
+  }
   
   return config;
 });
 
 api.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    // Check if response is HTML instead of JSON
+    if (response.data && typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+      console.warn('Received HTML instead of JSON - Backend server may not be running or API endpoint not found');
+      console.warn('Response data (first 200 chars):', response.data.substring(0, 200));
+      // Create a synthetic error for HTML responses
+      const error = new Error('Received HTML instead of JSON');
+      (error as any).response = {
+        status: 500,
+        statusText: 'Internal Server Error',
+        data: response.data,
+        config: response.config
+      };
+      (error as any).code = 'HTML_RESPONSE';
+      throw error;
+    }
+    return response;
+  },
   (error: AxiosError) => {
-    // Commented out verbose logging for cleaner console
-    // console.error('=== API Error Intercepted ===');
-    // console.error('Error object:', error);
-    // console.error('Error type:', typeof error);
-    // console.error('Error constructor:', error?.constructor?.name);
+    // Check if we received HTML instead of JSON
+    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE')) {
+      console.warn('Received HTML instead of JSON - Backend server may not be running or API endpoint not found');
+      console.warn('Response data (first 200 chars):', error.response.data.substring(0, 200));
+      (error as any).code = 'HTML_RESPONSE';
+    }
     
     const errorDetails = {
       message: error?.message || 'Unknown error',
@@ -59,24 +81,35 @@ api.interceptors.response.use(
     
     // Check for specific error types
     if (errorDetails.isNetworkError) {
-      console.error('Network Error - Check if server is running and accessible');
+      console.warn('Network Error - Check if server is running and accessible');
+      (error as any).code = 'NETWORK_ERROR';
     }
     
     if (errorDetails.isTimeout) {
-      console.error('Timeout Error - Request took too long');
+      console.warn('Timeout Error - Request took too long');
+    }
+    
+    if (error.code === 'ECONNREFUSED') {
+      console.warn('Connection Refused - Backend server is not running');
+      (error as any).code = 'NETWORK_ERROR';
     }
     
     if (errorDetails.status && errorDetails.status === 401) {
-      console.error('Authentication Error - Redirecting to login');
+      console.warn('Authentication Error - Redirecting to login');
       removeAuthToken();
       removeUserData();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
     } else if (errorDetails.status && errorDetails.status >= 500) {
-      console.error('Server Error - Backend issue');
+      console.warn('Server Error - Backend issue, using fallback data');
     } else if (errorDetails.status && errorDetails.status >= 400) {
-      console.error('Client Error - Request issue');
+      console.warn('Client Error - Request issue, using fallback data');
+    }
+    
+    // Don't reject the promise for admin endpoints, let them handle fallback
+    if (errorDetails.url?.includes('/admin/')) {
+      return Promise.reject(error);
     }
     
     return Promise.reject(error);
@@ -102,3 +135,48 @@ if (typeof window !== 'undefined') {
 }
 
 export default api;
+
+// User Events API
+export const getUserEvents = async (userId: string, params?: {
+  page?: number;
+  limit?: number;
+  status?: 'upcoming' | 'past' | 'cancelled';
+  type?: string;
+}) => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.type) queryParams.append('type', params.type);
+
+  const response = await api.get(`/users/${userId}/events?${queryParams}`);
+  return response.data;
+};
+
+// My Bookings API
+export const getMyBookings = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: 'confirmed' | 'pending' | 'cancelled' | 'completed';
+  startDate?: string;
+  endDate?: string;
+}) => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  const response = await api.get(`/bookings/my-bookings?${queryParams}`);
+  return response.data;
+};
+
+// Payment Confirmation API
+export const confirmPayment = async (bookingId: string, paymentIntentId?: string) => {
+  const response = await api.post('/payments/confirm', {
+    bookingId,
+    paymentIntentId
+  });
+  return response.data;
+};

@@ -24,6 +24,7 @@ interface EventData {
   };
   maxParticipants: number;
   price: number;
+  paymentType: 'free' | 'paid';
   requirements: string;
   tags: string;
   isPublic: boolean;
@@ -57,6 +58,7 @@ export default function UpdateEventPage() {
             },
             maxParticipants: eventData.maxParticipants || 10,
             price: eventData.price || 0,
+            paymentType: eventData.paymentType || (eventData.price > 0 ? 'paid' : 'free'),
             requirements: eventData.requirements ? eventData.requirements.join('\n') : '',
             tags: eventData.tags ? eventData.tags.join(',') : '',
             isPublic: eventData.isPublic !== false,
@@ -121,9 +123,28 @@ export default function UpdateEventPage() {
         ...prev,
         [name]: name === 'maxParticipants' || name === 'price' || name === 'duration' 
           ? Number(value) 
+          : name === 'paymentType' 
+          ? value as 'free' | 'paid'
           : value
       } : null);
     }
+
+    // Auto-update price based on payment type
+    if (name === 'paymentType') {
+      setEvent(prev => prev ? {
+        ...prev,
+        paymentType: value as 'free' | 'paid',
+        price: value === 'free' ? 0 : prev.price || 10
+      } : null);
+    }
+  };
+
+  const handlePaymentTypeChange = (value: 'free' | 'paid') => {
+    setEvent(prev => prev ? {
+      ...prev,
+      paymentType: value,
+      price: value === 'free' ? 0 : prev.price || 10
+    } : null);
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -306,19 +327,55 @@ export default function UpdateEventPage() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="price">Price (USD)</Label>
-            <Input
-              type="number"
-              id="price"
-              name="price"
-              min="0"
-              step="0.01"
-              value={event.price}
-              onChange={handleChange}
-              required
-            />
+          <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Payment Type
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => handlePaymentTypeChange('free')}
+                className={`p-3 border-2 rounded-lg text-center transition-all ${
+                  event.paymentType === 'free'
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-semibold">Free Event</div>
+                <div className="text-xs text-gray-600 mt-1">No cost to attend</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePaymentTypeChange('paid')}
+                className={`p-3 border-2 rounded-lg text-center transition-all ${
+                  event.paymentType === 'paid'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-semibold">Paid Event</div>
+                <div className="text-xs text-gray-600 mt-1">Requires payment</div>
+              </button>
+            </div>
           </div>
+
+          {event.paymentType === 'paid' && (
+            <div className="space-y-2">
+              <Label htmlFor="price">Price (USD)</Label>
+              <Input
+                type="number"
+                id="price"
+                name="price"
+                min="0.01"
+                step="0.01"
+                value={event.price}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          )}
+        </div>
         </div>
 
         <div className="space-y-2">
