@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // 'use client';
 
 // import React from 'react';
@@ -246,10 +247,10 @@ export default function HomePage() {
         if (response.data && typeof response.data === 'object') {
           const data = response.data.data;
           setPlatformStats([
-            { number: data.totalUsers?.toLocaleString() || '10K+', label: 'Active Users' },
-            { number: data.totalEvents?.toLocaleString() || '5K+', label: 'Events Created' },
-            { number: data.citiesCovered?.toLocaleString() || '50+', label: 'Cities Covered' },
-            { number: data.averageRating?.toFixed(1) || '4.8', label: 'Average Rating' }
+            { number: data.totalUsers ? data.totalUsers.toLocaleString() : '10K+', label: 'Active Users' },
+            { number: data.totalEvents ? data.totalEvents.toLocaleString() : '5K+', label: 'Events Created' },
+            { number: data.citiesCovered ? data.citiesCovered.toLocaleString() : '50+', label: 'Cities Covered' },
+            { number: data.averageRating ? data.averageRating.toFixed(1) : '4.8', label: 'Average Rating' }
           ]);
         } else {
           throw new Error('Invalid response format');

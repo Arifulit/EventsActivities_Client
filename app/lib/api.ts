@@ -168,7 +168,7 @@ export const getMyBookings = async (params?: {
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-  const response = await api.get(`/bookings/my-bookings?${queryParams}`);
+  const response = await api.get(`/bookings/my-bookings?${queryParams.toString()}`);
   return response.data;
 };
 
