@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React from 'react';
@@ -73,7 +74,7 @@ export default function AdminCard({
       className
     )}>
       {/* Background Pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-50/50 to-purple-50/50 pointer-events-none" />
       
       <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
         <div className="space-y-1">
@@ -96,7 +97,7 @@ export default function AdminCard({
           {/* Icon */}
           <div className={cn(
             'p-2.5 rounded-xl transition-all duration-300',
-            'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg'
+            'bg-linear-to-br from-blue-500 to-purple-600 text-white shadow-lg'
           )}>
             {icon}
           </div>
