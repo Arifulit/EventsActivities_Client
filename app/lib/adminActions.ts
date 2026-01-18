@@ -25,7 +25,7 @@ export const changeUserRole = async (userId: string, roleData: ChangeRoleData): 
 };
 
 export const verifyUser = async (userId: string): Promise<VerifyUserResponse> => {
-  const response = await api.put(`/admin/users/${userId}/verify`);
+  const response = await api.patch(`/admin/users/${userId}/verify`);
   return response.data;
 };
 

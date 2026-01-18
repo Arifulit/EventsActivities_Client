@@ -268,6 +268,7 @@ export default function HostLayout({
                 <Button variant="ghost" size="icon" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
                   <Bell className="w-4 h-4" />
                 </Button>
+                
                 <Button variant="ghost" size="icon" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
                   <Settings className="w-4 h-4" />
                 </Button>
