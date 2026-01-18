@@ -1,15 +1,20 @@
-# Events & Activities Platform - Frontend
+# 🎟️ Events & Activities Platform — Frontend  
 
-A comprehensive social platform for connecting people with events and activities based on shared interests. Built with Next.js 13, React 18, TypeScript, and Tailwind CSS.
+A modern social platform that connects people through shared interests, events, and activities.  
+Built with **Next.js 13, React 18, TypeScript, and Tailwind CSS** with a clean UI and scalable architecture.
 
+---
 
-## 🎬 Project Demo Video
-
-## 🎬 Project Demo Video
+## 🎬 Project Demo Video  
 
 [▶️ Watch Full Screen Demo](https://drive.google.com/file/d/1sUXPzmMJPO3SNyTdxSk9SGJ1x-GZ0JB4/view?usp=sharing)
 
+---
 
+## 🌐 Live Site  
+
+👉 **Live Link:**  
+https://events-activities-client-kappa.vercel.app/
 
 ## 🚀 Features
 
