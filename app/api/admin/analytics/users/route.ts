@@ -1,66 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
+
+const API_BASE = (process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+
+async function fetchBackendUserAnalytics(request: NextRequest) {
+	if (!API_BASE || !API_BASE.startsWith('http://') && !API_BASE.startsWith('https://')) {
+		return null;
+	}
+
+	const url = `${API_BASE}/admin/analytics/users`;
+
+	try {
+		const token = request.cookies.get('token')?.value;
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+		};
+
+		if (token) {
+			headers['Authorization'] = `Bearer ${token}`;
+		}
+		const response = await fetch(url, {
+			cache: 'no-store',
+			signal: AbortSignal.timeout(5000),
+			headers,
+		});
+
+		if (!response.ok) {
+			console.warn('User analytics backend responded with non-OK status:', response.status);
+			return null;
+		}
+
+		const contentType = response.headers.get('content-type') || '';
+		if (!contentType.includes('application/json')) {
+			console.warn('User analytics backend returned non-JSON content');
+			return null;
+		}
+
+		const data = await response.json();
+		return NextResponse.json({ ...data, meta: { source: 'backend' } }, { status: response.status });
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			if (error.message.includes('ECONNREFUSED')) {
+				console.log('Backend not available');
+			} else if (error.message.includes('timeout')) {
+				console.log('Backend request timeout');
+			} else {
+				console.error('User analytics backend fetch failed:', error);
+			}
+		}
+		return null;
+	}
+}
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30days';
+	const backendResponse = await fetchBackendUserAnalytics(request);
+	if (backendResponse) return backendResponse;
 
-    // Generate mock data based on period
-    const generateUserData = (period: string) => {
-      const days = period.includes('7') ? 7 : period.includes('30') ? 30 : 90;
-      const data = [];
-      
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        
-        data.push({
-          date: date.toISOString().split('T')[0],
-          newUsers: Math.floor(Math.random() * 50) + 20,
-          activeUsers: Math.floor(Math.random() * 200) + 100,
-          returningUsers: Math.floor(Math.random() * 100) + 50,
-          totalUsers: 15000 + (days - i) * 15,
-          verifiedUsers: 12000 + (days - i) * 12,
-          bannedUsers: 200 + Math.floor(Math.random() * 5)
-        });
-      }
-      
-      return data;
-    };
-
-    const userData = generateUserData(period);
-
-    // Summary statistics
-    const summary = {
-      totalUsers: userData[userData.length - 1].totalUsers,
-      newUsersThisPeriod: userData.reduce((sum, day) => sum + day.newUsers, 0),
-      activeUsersThisPeriod: userData.reduce((sum, day) => sum + day.activeUsers, 0),
-      averageDailyActive: Math.floor(userData.reduce((sum, day) => sum + day.activeUsers, 0) / userData.length),
-      userGrowthRate: 18.5,
-      retentionRate: 72.3,
-      verificationRate: 83.2
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        period,
-        dailyData: userData,
-        summary,
-        chartData: userData.map(item => ({
-          date: item.date,
-          newUsers: item.newUsers,
-          activeUsers: item.activeUsers,
-          totalUsers: item.totalUsers
-        }))
-      },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error fetching user analytics:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch user analytics' },
-      { status: 500 }
-    );
-  }
+	// Return empty data structure when backend is unavailable
+	return NextResponse.json({
+		success: false,
+		message: 'Backend service unavailable',
+		data: {
+			period: '30days',
+			totalUsers: 0,
+			newUsers: 0,
+			activeUsers: 0,
+			verifiedUsers: 0,
+			usersByRole: [],
+			dailyRegistrations: [],
+			topHosts: [],
+		},
+		timestamp: new Date().toISOString(),
+	}, { status: 503 });
 }

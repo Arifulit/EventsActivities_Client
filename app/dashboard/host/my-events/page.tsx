@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -5,7 +6,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { getMyEvents, Event, MyEventsResponse } from '@/app/lib/events';
@@ -22,12 +23,11 @@ import {
   Trash2,
   Loader2,
   CalendarIcon,
-  UsersIcon,
   Settings,
   Eye,
-  UserCheck,
-  UserX
+  UserCheck
 } from 'lucide-react';
+import api from '@/app/lib/api';
 
 // Constants
 const EVENT_CATEGORY_COLORS: Record<string, string> = {
@@ -107,8 +107,79 @@ const StatsCard: React.FC<{
   </Card>
 );
 
-const EventCard: React.FC<{ event: Event; isHosted: boolean }> = ({ event, isHosted }) => (
-  <Card className="hover:shadow-lg transition-all duration-300 group">
+const EventCard: React.FC<{ event: Event; isHosted: boolean; onDelete?: (eventId: string) => void; isDeleting?: boolean }> = ({ event, isHosted, onDelete, isDeleting }) => {
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+  const [imageError, setImageError] = React.useState(false);
+
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+  const ORIGIN = React.useMemo(() => API_BASE.replace(/\/api\/?$/, ''), [API_BASE]);
+
+  const normalizeImageUrl = React.useCallback((raw?: string | null) => {
+    if (!raw) return null;
+    try {
+      let src = String(raw).trim().replace(/\\/g, '/');
+      // strip surrounding quotes if present
+      src = src.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+      
+      // Handle placeholder URLs - don't use them (show gradient instead)
+      if (src.includes('placeholder.com') || src.includes('placehold.co')) {
+        console.warn('Skipping placeholder URL:', src);
+        return null;
+      }
+      
+      if (/^data:image\//i.test(src)) return src; // data URL support
+      if (/^https?:\/\//i.test(src)) return src;
+      if (src.startsWith('//')) return `${window.location.protocol}${src}`;
+      if (src.startsWith('/')) return `${ORIGIN}${src}`;
+      return `${ORIGIN}/${src}`;
+    } catch {
+      return null;
+    }
+  }, [ORIGIN]);
+  
+  React.useEffect(() => {
+    setImageError(false); // Reset error state when image changes
+    const srcRaw = (event as any).image || (event as any).imageUrl || null;
+    const src = normalizeImageUrl(srcRaw);
+    if (src) {
+      const cacheKey = (event as any).updatedAt || (event as any).imageUpdatedAt || Date.now().toString();
+      const withCache = `${src}${src.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheKey)}`;
+      console.log('Event:', event.title, '- Image URL:', withCache, '(raw:', srcRaw, ')');
+      setImageUrl(withCache);
+    } else {
+      console.log('Event:', event.title, '- No image');
+      setImageUrl(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event._id, event.title, normalizeImageUrl]);
+
+  return (
+  <Card className="hover:shadow-lg transition-all duration-300 group overflow-hidden">
+    <div className="relative w-full h-40 bg-gray-200 overflow-hidden flex items-center justify-center">
+      {imageUrl && !imageError ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src={imageUrl} 
+            alt={event.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            onError={() => {
+              console.warn('Image failed to load for event:', event._id, '- URL:', imageUrl);
+              setImageError(true);
+              setImageUrl(null);
+            }}
+            onLoad={() => {
+              console.log('✓ Image loaded successfully for event:', event._id);
+            }}
+          />
+        </>
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
+          <Calendar className="w-12 h-12 text-white opacity-70" />
+        </div>
+      )}
+    </div>
     <CardHeader className="pb-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
@@ -123,9 +194,9 @@ const EventCard: React.FC<{ event: Event; isHosted: boolean }> = ({ event, isHos
           <CardTitle className="text-xl line-clamp-2 group-hover:text-blue-600 transition-colors">
             {event.title}
           </CardTitle>
-          <CardDescription className="line-clamp-2 mt-2">
+          <p className="line-clamp-2 mt-2 text-sm text-gray-600">
             {event.description}
-          </CardDescription>
+          </p>
         </div>
       </div>
     </CardHeader>
@@ -163,25 +234,48 @@ const EventCard: React.FC<{ event: Event; isHosted: boolean }> = ({ event, isHos
         )}
       </div>
 
-      <div className="flex gap-2 pt-2">
-        <Link href={`/events/${event._id}`} className="flex-1">
-          <Button variant="outline" size="sm" className="w-full group-hover:bg-blue-50 transition-colors">
-            <Eye className="w-4 h-4 mr-2" />
-            {isHosted ? 'View' : 'View Details'}
-          </Button>
-        </Link>
-        {isHosted && (
-          <Link href={`/events/edit/${event._id}`} className="flex-1">
-            <Button size="sm" className="w-full">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit
+      <div className="flex flex-col gap-2 pt-2">
+        <div className="flex gap-2">
+          <Link href={`/events/${event._id}`} className="flex-1">
+            <Button variant="outline" size="sm" className="w-full group-hover:bg-blue-50 transition-colors">
+              <Eye className="w-4 h-4 mr-2" />
+              {isHosted ? 'View' : 'View Details'}
             </Button>
           </Link>
+          {isHosted && (
+            <Link href={`/dashboard/host/events/edit/${event._id}`} className="flex-1">
+              <Button size="sm" className="w-full">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            </Link>
+          )}
+        </div>
+        {isHosted && (
+          <>
+            <Link href={`/dashboard/host/bookings/${event._id}`} className="w-full">
+              <Button variant="outline" size="sm" className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200">
+                <Users className="w-4 h-4 mr-2" />
+                View Participants ({event.currentParticipants})
+              </Button>
+            </Link>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="w-full bg-red-100 hover:bg-red-600 text-red-700 hover:text-white border border-red-300 hover:border-red-600"
+              onClick={() => onDelete?.(event._id)}
+              disabled={isDeleting}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </>
         )}
       </div>
     </CardContent>
   </Card>
-);
+  );
+};
 
 const EmptyState: React.FC<{ 
   type: 'hosting' | 'attending'; 
@@ -228,6 +322,40 @@ export default function MyEventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('hosting');
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  const deleteEvent = useCallback(async (eventId: string) => {
+    // Show confirmation toast with action buttons
+    setDeletingEventId(eventId);
+    
+    try {
+      await api.delete(`/events/${eventId}`);
+      toast.success('Event deleted successfully!');
+      setDeletingEventId(null);
+      
+      // Refresh events list
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getMyEvents();
+        setEventsData(data);
+      } catch (err) {
+        console.error('Error fetching my events:', err);
+        const errorMessage = (err instanceof Error ? err.message : (err as { response?: { data?: { message?: string } } }).response?.data?.message) || 'Failed to load your events';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error deleting event:', err);
+      const errorMessage = (err instanceof Error ? err.message : (err as { response?: { data?: { message?: string } } }).response?.data?.message) || 'Failed to delete event';
+      toast.error(errorMessage);
+      setDeletingEventId(null);
+    }
+  }, [user]);
 
   const fetchMyEvents = useCallback(async () => {
     if (!user) return;
@@ -235,11 +363,21 @@ export default function MyEventsPage() {
     try {
       setLoading(true);
       setError(null);
+      console.log('\n=== Fetching My Events ===');
       const data = await getMyEvents();
+      console.log('✓ Events fetched:', data.data.length);
+      console.log('📦 Full response structure:', JSON.stringify(data, null, 2));
+      data.data.forEach((event, index) => {
+        console.log(`\nEvent ${index + 1}:`);
+        console.log(`  Title: ${event.title}`);
+        console.log(`  ID: ${event._id}`);
+        console.log(`  Image field: ${event.image || 'MISSING'}`);
+        console.log(`  Full event object:`, event);
+      });
       setEventsData(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching my events:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to load your events';
+      const errorMessage = (err instanceof Error ? err.message : (err as { response?: { data?: { message?: string } } }).response?.data?.message) || 'Failed to load your events';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -252,7 +390,20 @@ export default function MyEventsPage() {
       router.push('/login');
       return;
     }
+    
+    // Always fetch fresh data on mount
     fetchMyEvents();
+    
+    // Also refresh when page comes into focus (e.g., after navigation)
+    const handleFocus = () => {
+      fetchMyEvents();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user, router, fetchMyEvents]);
 
   // Memoized calculations - completely safe approach
@@ -269,7 +420,7 @@ export default function MyEventsPage() {
         return false;
       }
     });
-  }, [eventsData, user]);
+  }, [eventsData?.data, user?._id]);
 
   const getJoinedEvents = React.useCallback(() => {
     if (!eventsData?.data || !user?._id) return [];
@@ -284,11 +435,11 @@ export default function MyEventsPage() {
         return false;
       }
     });
-  }, [eventsData, user]);
+  }, [eventsData?.data, user?._id]);
 
   // Only calculate when user exists
-  const hostedEvents = user ? getHostedEvents() : [];
-  const joinedEvents = user ? getJoinedEvents() : [];
+  const hostedEvents = React.useMemo(() => user ? getHostedEvents() : [], [user, getHostedEvents]);
+  const joinedEvents = React.useMemo(() => user ? getJoinedEvents() : [], [user, getJoinedEvents]);
 
   const stats = React.useMemo(() => {
     if (!eventsData?.data) return { total: 0, hosting: 0, attending: 0 };
@@ -302,7 +453,7 @@ export default function MyEventsPage() {
   // Render states
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="relative">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
@@ -328,7 +479,7 @@ export default function MyEventsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">My Events</h1>
-            <p className="text-muted-foreground">Manage events you're hosting and attending</p>
+            <p className="text-muted-foreground">Manage events you&rsquo;re hosting and attending</p>
           </div>
           {user?.role === 'host' && (
             <Link href="/events/create">
@@ -382,7 +533,7 @@ export default function MyEventsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {hostedEvents.map((event) => (
-                <EventCard key={event._id} event={event} isHosted={true} />
+                <EventCard key={event._id} event={event} isHosted={true} onDelete={deleteEvent} isDeleting={deletingEventId === event._id} />
               ))}
             </div>
           )}
@@ -400,6 +551,8 @@ export default function MyEventsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Delete modal removed - now using direct delete with toast */}
     </div>
   );
 }

@@ -133,9 +133,9 @@ export default function BecomeHost() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-green-50 to-emerald-50">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white">
+      <section className="relative overflow-hidden bg-linear-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
@@ -151,7 +151,7 @@ export default function BecomeHost() {
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
               Become a
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+              <span className="block text-transparent bg-clip-text bg-linear-to-r from-yellow-300 to-orange-400">
                 Event Host
               </span>
             </h1>
@@ -163,7 +163,7 @@ export default function BecomeHost() {
                 onClick={handleBecomeHost}
                 disabled={isSubmitting}
                 size="lg"
-                className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 hover:from-yellow-500 hover:via-orange-600 hover:to-red-600 text-white font-bold px-8 py-4 text-lg shadow-2xl transform hover:scale-105 transition-all duration-300 border-2 border-white/20"
+                className="bg-linear-to-r from-yellow-400 via-orange-500 to-red-500 hover:from-yellow-500 hover:via-orange-600 hover:to-red-600 text-white font-bold px-8 py-4 text-lg shadow-2xl transform hover:scale-105 transition-all duration-300 border-2 border-white/20"
               >
                 {isSubmitting ? (
                   <>
@@ -216,7 +216,7 @@ export default function BecomeHost() {
                 key={index}
                 className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100"
               >
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mb-6">
+                <div className="w-16 h-16 bg-linear-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mb-6">
                   <benefit.icon className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">{benefit.title}</h3>
@@ -228,7 +228,7 @@ export default function BecomeHost() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
+      <section className="py-20 bg-linear-to-br from-gray-50 to-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -243,7 +243,7 @@ export default function BecomeHost() {
             {steps.map((step, index) => (
               <div key={index} className="relative">
                 <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-xl mb-6">
+                  <div className="w-12 h-12 bg-linear-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-xl mb-6">
                     {step.number}
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-3">{step.title}</h3>
@@ -294,7 +294,7 @@ export default function BecomeHost() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white">
+      <section className="py-20 bg-linear-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-6">
             Ready to Start Your Journey?
@@ -306,7 +306,7 @@ export default function BecomeHost() {
             onClick={handleBecomeHost}
             disabled={isSubmitting}
             size="lg"
-            className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 hover:from-yellow-500 hover:via-orange-600 hover:to-red-600 text-white font-bold px-8 py-4 text-lg shadow-2xl transform hover:scale-105 transition-all duration-300 border-2 border-white/20"
+            className="bg-linear-to-r from-yellow-400 via-orange-500 to-red-500 hover:from-yellow-500 hover:via-orange-600 hover:to-red-600 text-white font-bold px-8 py-4 text-lg shadow-2xl transform hover:scale-105 transition-all duration-300 border-2 border-white/20"
           >
             {isSubmitting ? (
               <>

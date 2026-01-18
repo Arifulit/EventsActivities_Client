@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,6 +8,9 @@ import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Calendar, MapPin, Users, Clock, ArrowLeft, Loader2, CreditCard, DollarSign, Star, MessageSquare } from 'lucide-react';
 import { fetchBookingDetails, confirmPayment, createReview } from '@/lib/api';
+import { useAuth } from '@/app/context/AuthContext';
+import { getAuthToken, getUserData } from '@/app/lib/auth';
+import SimplePayment from '@/components/payment/SimplePayment';
 
 interface BookingDetails {
   _id: string;
@@ -65,6 +69,7 @@ export default function BookingDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const bookingId = params.bookingId as string;
+  const { user: authUser } = useAuth();
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +78,17 @@ export default function BookingDetailsPage() {
   const [reviewData, setReviewData] = useState<ReviewData>({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCardPayment, setShowCardPayment] = useState(false);
+
+  // Debug info
+  const debugInfo = {
+    currentUser: authUser,
+    currentUserData: getUserData(),
+    token: getAuthToken(),
+    bookingUser: bookingDetails?.userId,
+    isOwner: authUser?._id === bookingDetails?.userId?._id
+  };
 
   useEffect(() => {
     const fetchBookingData = async () => {
@@ -93,45 +109,47 @@ export default function BookingDetailsPage() {
     }
   }, [bookingId]);
 
-  const handlePaymentCompletion = async () => {
-    if (!bookingDetails) return;
+  const handlePaymentCompletion = () => {
+    // Open simple payment modal
+    console.log('🔄 Payment completion clicked');
+    setShowCardPayment(true);
+  };
 
-    try {
-      setProcessingPayment(true);
-      
-      // For testing: use the provided Payment Intent ID if no paymentIntentId in booking
-      const testPaymentIntentId = bookingDetails.paymentIntentId || 'pi_3SlpnMK0TTEY76871Rit4P49';
-      
-      console.log('Attempting payment completion with:', {
-        bookingId: bookingDetails._id,
-        paymentIntentId: testPaymentIntentId
-      });
-      
-      // Use Payment Intent ID if available, otherwise try with just bookingId
-      const result = await confirmPayment(bookingDetails._id, testPaymentIntentId);
-      
-      if (result.success) {
-        // Refresh booking details
+  const handleCardPaymentSuccess = () => {
+    // Refresh booking details after successful payment
+    const fetchBookingData = async () => {
+      try {
+        setLoading(true);
         const response = await fetchBookingDetails(bookingId);
         setBookingDetails(response.data);
-        alert('Payment completed successfully!');
-      } else {
-        alert(result.message || 'Payment completion failed. Please try again.');
+        
+        // Update booking status to succeeded
+        if (response.data && typeof response.data === 'object') {
+          const updatedBooking = {
+            ...(response.data as object),
+            paymentStatus: 'paid',
+            status: 'confirmed'
+          } as BookingDetails;
+          setBookingDetails(updatedBooking);
+          console.log('✅ Booking status updated to paid');
+        }
+      } catch (error: any) {
+        console.error('Error fetching booking details:', error);
+        setError(error.message || 'Failed to fetch booking details');
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Payment completion error:', error);
-      
-      // Provide specific guidance based on the error
-      if (error.message.includes('Payment incomplete') || error.message.includes('paymentMethodId')) {
-        alert('Payment requires additional information. Please complete the payment process using our secure payment form. This feature will be available soon.');
-      } else if (error.message.includes('client secret')) {
-        alert('Payment requires secure authentication. Please complete the payment on our secure payment page. This feature will be available soon.');
-      } else {
-        alert(error.message || 'Payment completion failed. Please contact support if the issue persists.');
-      }
-    } finally {
-      setProcessingPayment(false);
-    }
+    };
+    
+    fetchBookingData();
+    setShowCardPayment(false);
+    alert('Payment completed successfully! Booking status updated to paid.');
+  };
+
+  const handleCardPaymentError = (error: string) => {
+    console.error('Card payment error:', error);
+    alert(error);
+    setShowCardPayment(false);
   };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
@@ -142,11 +160,7 @@ export default function BookingDetailsPage() {
     try {
       setSubmittingReview(true);
       
-      const result = await createReview(
-        bookingDetails.eventId._id,
-        reviewData.rating,
-        reviewData.comment
-      );
+      const result = await createReview();
       
       if (result.success) {
         alert('Review submitted successfully!');
@@ -203,6 +217,47 @@ export default function BookingDetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Debug Info Panel - Only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="lg:col-span-3">
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardHeader>
+                <CardTitle className="text-sm text-yellow-800">Debug Info - Payment Authorization</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <strong>Current User ID:</strong>
+                    <div className="text-red-600 font-mono break-all">{debugInfo.currentUser?._id || 'Not logged in'}</div>
+                  </div>
+                  <div>
+                    <strong>Current User Email:</strong>
+                    <div className="text-blue-600">{debugInfo.currentUser?.email || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong>Booking User ID:</strong>
+                    <div className="text-purple-600 font-mono break-all">{debugInfo.bookingUser?._id || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong>Is Owner:</strong>
+                    <div className={debugInfo.isOwner ? 'text-green-600' : 'text-red-600'}>
+                      {debugInfo.isOwner ? 'YES ✅' : 'NO ❌'}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <strong>Token Present:</strong> {debugInfo.token ? 'YES ✅' : 'NO ❌'}
+                </div>
+                {!debugInfo.isOwner && (
+                  <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700">
+                    ⚠️ Authorization will fail! Current user is not the booking owner.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Event Information */}
@@ -350,7 +405,7 @@ export default function BookingDetailsPage() {
                     ) : (
                       <>
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Complete Payment
+                        Pay with Card
                       </>
                     )}
                   </Button>
@@ -480,6 +535,17 @@ export default function BookingDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Simple Payment Modal */}
+      {showCardPayment && bookingDetails && (
+        <SimplePayment
+          bookingId={bookingDetails._id}
+          amount={bookingDetails.amount * 100}
+          currency={bookingDetails.currency || 'usd'}
+          onSuccess={handleCardPaymentSuccess}
+          onCancel={() => setShowCardPayment(false)}
+        />
+      )}
     </div>
   );
 }

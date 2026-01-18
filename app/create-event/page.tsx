@@ -1,7 +1,8 @@
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
@@ -13,10 +14,7 @@ import {
   Calendar,
   MapPin,
   Users,
-  DollarSign,
   Image as ImageIcon,
-  Tag,
-  Clock,
   Loader2,
   ArrowLeft,
   Upload
@@ -110,7 +108,7 @@ export default function CreateEventPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -133,7 +131,7 @@ export default function CreateEventPage() {
 
         {/* Main Form */}
         <Card className="border-0 shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b">
+          <CardHeader className="bg-linear-to-r from-emerald-50 to-teal-50 border-b">
             <CardTitle>Event Details</CardTitle>
             <CardDescription>
               Fill in the information about your event
@@ -407,7 +405,7 @@ export default function CreateEventPage() {
                 <Button 
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  className="flex-1 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                 >
                   {isLoading ? (
                     <>

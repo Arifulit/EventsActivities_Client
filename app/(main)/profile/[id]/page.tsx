@@ -13,18 +13,15 @@ import {
   MapPin, 
   Mail, 
   Calendar, 
-  Star, 
   Edit, 
   Save, 
   X, 
   Camera,
-  Award,
   Users,
   TrendingUp,
   Heart,
   MessageCircle,
   Share2,
-  Settings,
   Shield,
   Crown,
   CheckCircle,
@@ -45,17 +42,6 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  if (!user && !isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">User not found</h1>
-          <Button onClick={() => router.push('/')}>Go Home</Button>
-        </div>
-      </div>
-    );
-  }
   const [editForm, setEditForm] = useState({
     fullName: '',
     bio: '',
@@ -69,10 +55,6 @@ export default function ProfilePage() {
 
   const isOwnProfile = currentUser?._id === userId;
 
-  useEffect(() => {
-    fetchUserProfile();
-  }, [userId]);
-
   const fetchUserProfile = async () => {
     try {
       const response = await getUserProfile(userId);
@@ -85,16 +67,30 @@ export default function ProfilePage() {
         location: userData.location?.city || '',
         interests: userData.interests || [],
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch user profile:', error);
+      toast.error('Failed to load user profile');
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
+  useEffect(() => {
+    fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  if (!user && !isLoading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">User not found</h1>
+          <Button onClick={() => router.push('/')}>Go Home</Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSave = async () => {
     try {
@@ -153,14 +149,17 @@ export default function ProfilePage() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file');
+        toast.error('Please select an image file (PNG, JPG, GIF)');
         return;
       }
       
-      // Validate file size (max 2MB to prevent request entity too large)
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('Image size should be less than 2MB for optimal performance');
-        return;
+      // Show info about file size (backend will handle via Cloudinary)
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      if (file.size > 5 * 1024 * 1024) {
+        toast.success(`Image selected (${sizeMB}MB). Backend will optimize it automatically.`, {
+          duration: 3000,
+          icon: '📤'
+        });
       }
 
       setSelectedImage(file);
@@ -174,73 +173,7 @@ export default function ProfilePage() {
     }
   };
 
-  const compressImageSimple = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        
-        // Simple compression by reducing quality
-        const img = new Image();
-        img.onload = () => {
-          // Create a smaller canvas for compression
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          if (!ctx) {
-            // Fallback to original base64 if canvas fails
-            resolve(result);
-            return;
-          }
 
-          // Calculate new dimensions (max 300x300 for profile)
-          let { width, height } = img;
-          const maxSize = 300;
-          
-          if (width > height) {
-            if (width > maxSize) {
-              height *= maxSize / width;
-              width = maxSize;
-            }
-          } else {
-            if (height > maxSize) {
-              width *= maxSize / height;
-              height = maxSize;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          try {
-            // Draw and compress image
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Convert to base64 with reduced quality
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            resolve(compressedDataUrl);
-          } catch (error) {
-            // Fallback to original if compression fails
-            console.warn('Canvas compression failed, using original:', error);
-            resolve(result);
-          }
-        };
-        
-        img.onerror = () => {
-          // Fallback to original base64 if image loading fails
-          resolve(result);
-        };
-        
-        img.src = result;
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-      
-      reader.readAsDataURL(file);
-    });
-  };
 
   const handleImageUpload = async () => {
     if (!selectedImage) return;
@@ -248,39 +181,25 @@ export default function ProfilePage() {
     setIsUploadingImage(true);
     try {
       console.log('Starting image upload...');
+      console.log(`File: ${selectedImage.name}, Size: ${(selectedImage.size / 1024).toFixed(2)}KB`);
       
-      // Try to compress image, with fallback to original
-      let imageUrl: string;
-      try {
-        imageUrl = await compressImageSimple(selectedImage);
-        console.log('Image compressed successfully');
-      } catch (compressError) {
-        console.warn('Compression failed, using original:', compressError);
-        // Fallback to simple base64
-        imageUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedImage);
-        });
-      }
+      // Create FormData and send to backend via PUT /users/{userId}
+      const formData = new FormData();
+      formData.append('profileImage', selectedImage);
       
-      console.log('Updating user profile with image...');
+      const response = await updateUserProfile(userId, formData);
       
-      // Update user profile with image
-      const response = await updateUserProfile(userId, {
-        profileImage: imageUrl,
-      });
-      
-      console.log('Profile updated successfully');
+      console.log('Profile image uploaded successfully to Cloudinary');
+      console.log('Cloudinary URL:', response.data.profileImage);
       
       setUser(response.data);
       setSelectedImage(null);
       setImagePreview(null);
-      toast.success('Profile image updated successfully!');
-    } catch (error: any) {
+      toast.success('Profile image updated successfully! 🎉');
+    } catch (error: unknown) {
       console.error('Failed to upload image:', error);
-      toast.error(error.message || 'Failed to upload image. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload image. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsUploadingImage(false);
     }
@@ -288,7 +207,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="relative">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
@@ -303,13 +222,13 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <User className="w-10 h-10 text-gray-400" />
           </div>
           <div className="text-xl font-medium text-gray-900 mb-2">Profile not found</div>
-          <div className="text-gray-500 mb-4">The user profile you're looking for doesn't exist</div>
+          <div className="text-gray-500 mb-4">The user profile you&apos;re looking for doesn&apos;t exist</div>
           <Button onClick={() => router.back()} className="bg-blue-600 hover:bg-blue-700">
             Go Back
           </Button>
@@ -341,21 +260,22 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
+      <div className="relative bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
           <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-6 sm:space-y-0 sm:space-x-8">
             {/* Profile Image */}
-            <div className="relative flex-shrink-0">
+            <div className="relative shrink-0">
               <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 flex items-center justify-center shadow-2xl overflow-hidden">
                 {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                 ) : user.profileImage ? (
                   <Avatar className="w-full h-full rounded-full">
                     <AvatarImage src={user.profileImage} alt={user.fullName} className="object-cover" />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl font-bold">
+                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl font-bold">
                       {user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -424,7 +344,7 @@ export default function ProfilePage() {
                     className="text-2xl sm:text-3xl font-bold bg-white/20 border-white/30 text-white placeholder-white/70 text-center sm:text-left"
                   />
                 ) : (
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white break-words">{user.fullName}</h1>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white wrap-break-word">{user.fullName}</h1>
                 )}
                 <Badge className={`border ${getRoleColor(user.role)} px-3 py-1 shadow-lg backdrop-blur-sm`}>
                   <div className="flex items-center space-x-1">
@@ -446,7 +366,7 @@ export default function ProfilePage() {
               <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start space-y-2 sm:space-y-0 sm:space-x-4 text-white/80 mb-4 text-sm sm:text-base">
                 <div className="flex items-center space-x-2">
                   <Mail className="w-4 h-4" />
-                  <span className="break-words">{user.email}</span>
+                  <span className="wrap-break-word">{user.email}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4" />
@@ -721,25 +641,54 @@ export default function ProfilePage() {
               <CardContent>
                 {user.hostedEvents && user.hostedEvents.length > 0 ? (
                   <div className="space-y-4">
-                    {user.hostedEvents.map((event: any, index: number) => (
-                      <div key={event._id || `hosted-event-${index}`} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:shadow-md transition-all duration-300 hover:border-blue-300">
-                        <h3 className="font-semibold text-gray-900 text-base sm:text-lg mb-2">{event.title}</h3>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{event.description}</p>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {new Date(event.date).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="w-4 h-4" />
-                              {event.currentParticipants}/{event.maxParticipants} attendees
-                            </span>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {user.hostedEvents.map((event: any, index: number) => {
+                      const eventId = typeof event === 'string' ? event : event._id || event.eventId;
+                      const eventTitle = typeof event === 'object' ? event.title : null;
+                      const eventDate = typeof event === 'object' && event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+                      const eventLocation = typeof event === 'object' && event.location ? event.location.city : null;
+                      const eventPrice = typeof event === 'object' && event.price !== undefined ? event.price : null;
+                      const eventImage = typeof event === 'object' ? event.image : null;
+                      
+                      return (
+                        <div key={`hosted-event-${index}`} className="border border-gray-200 rounded-lg hover:shadow-md transition-all duration-300 hover:border-blue-300 cursor-pointer overflow-hidden">
+                          {eventImage && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img 
+                              src={eventImage} 
+                              alt={eventTitle || 'Event'}
+                              className="w-full h-32 object-cover"
+                            />
+                          )}
+                          <div className="p-3 sm:p-4 space-y-2">
+                            {eventTitle ? (
+                              <>
+                                <p className="text-base font-semibold text-gray-900">{eventTitle}</p>
+                                {eventDate && (
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    {eventDate}
+                                  </div>
+                                )}
+                                {eventLocation && (
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <MapPin className="w-4 h-4 mr-1" />
+                                    {eventLocation}
+                                  </div>
+                                )}
+                                {eventPrice !== null && (
+                                  <p className="text-sm font-medium text-green-600">
+                                    {eventPrice === 0 ? 'Free' : `$${eventPrice}`}
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-sm text-gray-600 font-mono">{eventId}</p>
+                            )}
                           </div>
-                          <Badge variant="outline" className="text-xs">{event.status}</Badge>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 sm:py-12">
@@ -764,25 +713,54 @@ export default function ProfilePage() {
               <CardContent>
                 {user.joinedEvents && user.joinedEvents.length > 0 ? (
                   <div className="space-y-4">
-                    {user.joinedEvents.map((event: any, index: number) => (
-                      <div key={event._id || `joined-event-${index}`} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:shadow-md transition-all duration-300 hover:border-green-300">
-                        <h3 className="font-semibold text-gray-900 text-base sm:text-lg mb-2">{event.title}</h3>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{event.description}</p>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {new Date(event.date).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="w-4 h-4" />
-                              {event.currentParticipants}/{event.maxParticipants} attendees
-                            </span>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {user.joinedEvents.map((event: any, index: number) => {
+                      const eventId = typeof event === 'string' ? event : event._id || event.eventId;
+                      const eventTitle = typeof event === 'object' ? event.title : null;
+                      const eventDate = typeof event === 'object' && event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+                      const eventLocation = typeof event === 'object' && event.location ? event.location.city : null;
+                      const eventPrice = typeof event === 'object' && event.price !== undefined ? event.price : null;
+                      const eventImage = typeof event === 'object' ? event.image : null;
+                      
+                      return (
+                        <div key={`joined-event-${index}`} className="border border-gray-200 rounded-lg hover:shadow-md transition-all duration-300 hover:border-green-300 cursor-pointer overflow-hidden">
+                          {eventImage && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img 
+                              src={eventImage} 
+                              alt={eventTitle || 'Event'}
+                              className="w-full h-32 object-cover"
+                            />
+                          )}
+                          <div className="p-3 sm:p-4 space-y-2">
+                            {eventTitle ? (
+                              <>
+                                <p className="text-base font-semibold text-gray-900">{eventTitle}</p>
+                                {eventDate && (
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    {eventDate}
+                                  </div>
+                                )}
+                                {eventLocation && (
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <MapPin className="w-4 h-4 mr-1" />
+                                    {eventLocation}
+                                  </div>
+                                )}
+                                {eventPrice !== null && (
+                                  <p className="text-sm font-medium text-green-600">
+                                    {eventPrice === 0 ? 'Free' : `$${eventPrice}`}
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-sm text-gray-600 font-mono">{eventId}</p>
+                            )}
                           </div>
-                          <Badge variant="outline" className="text-xs">{event.status}</Badge>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 sm:py-12">

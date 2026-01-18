@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -27,11 +28,31 @@ import toast from 'react-hot-toast';
 import AIEventManager from '@/app/components/ai/AIEventManager';
 import { AIEventSuggestion } from '@/app/lib/ai-events';
 
+interface EventData {
+  _id: string;
+  title: string;
+  description: string;
+  type: string;
+  category: string;
+  date: string;
+  time: string;
+  currentParticipants: number;
+  maxParticipants: number;
+  price: number;
+  status: string;
+  image?: string;
+  location?: {
+    city?: string;
+    venue?: string;
+  };
+}
+
 export default function HostEventsPage() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAIManager, setShowAIManager] = useState(false);
-  const [selectedEventForAI, setSelectedEventForAI] = useState<any>(null);
+  const [selectedEventForAI, setSelectedEventForAI] = useState<EventData | null>(null);
+  const [imageLoadedStatus, setImageLoadedStatus] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState({
     totalEvents: 0,
     totalParticipants: 0,
@@ -51,9 +72,9 @@ export default function HostEventsPage() {
       setEvents(eventsData);
       
       // Calculate stats
-      const totalParticipants = eventsData.reduce((sum: number, event: any) => sum + event.currentParticipants, 0);
-      const totalRevenue = eventsData.reduce((sum: number, event: any) => sum + (event.currentParticipants * event.price), 0);
-      const upcomingEvents = eventsData.filter((event: any) => new Date(event.date) > new Date()).length;
+      const totalParticipants = eventsData.reduce((sum: number, event: EventData) => sum + event.currentParticipants, 0);
+      const totalRevenue = eventsData.reduce((sum: number, event: EventData) => sum + (event.currentParticipants * event.price), 0);
+      const upcomingEvents = eventsData.filter((event: EventData) => new Date(event.date) > new Date()).length;
       
       setStats({
         totalEvents: eventsData.length,
@@ -62,7 +83,7 @@ export default function HostEventsPage() {
         upcomingEvents
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch hosted events:', error);
       toast.error('Failed to load events');
     } finally {
@@ -70,7 +91,22 @@ export default function HostEventsPage() {
     }
   };
 
-  const handleAIEventUpdate = (updatedEventData: any) => {
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await api.delete(`/events/${eventId}`);
+      toast.success('Event deleted successfully!');
+      // Remove from local state
+      setEvents(prev => prev.filter(event => event._id !== eventId));
+      // Recalculate stats
+      fetchHostedEvents();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      console.error('Failed to delete event:', error);
+      toast.error(err.response?.data?.message || 'Failed to delete event');
+    }
+  };
+
+  const handleAIEventUpdate = (updatedEventData: EventData) => {
     // Update the event in the local state
     setEvents(prev => prev.map(event => 
       event._id === updatedEventData._id ? updatedEventData : event
@@ -107,7 +143,7 @@ export default function HostEventsPage() {
     window.location.href = '/dashboard/host/events/create';
   };
 
-  const openAIManager = (event?: any) => {
+  const openAIManager = (event?: EventData) => {
     setSelectedEventForAI(event || null);
     setShowAIManager(true);
   };
@@ -143,7 +179,7 @@ export default function HostEventsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -271,8 +307,29 @@ export default function HostEventsPage() {
               <Card key={event._id} className="group hover:shadow-lg transition-all duration-200">
                 <CardHeader className="p-0">
                   <div className="relative">
-                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-lg flex items-center justify-center">
-                      <Calendar className="w-12 h-12 text-gray-400" />
+                    <div className="w-full h-48 bg-gray-200 rounded-t-lg flex items-center justify-center overflow-hidden">
+                      {event.image && imageLoadedStatus[event._id] !== false ? (
+                        <img 
+                          src={event.image} 
+                          alt={event.title}
+                          className="w-full h-full object-cover rounded-t-lg"
+                          loading="lazy"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            console.warn('Image failed to load for event:', event._id, 'URL:', event.image);
+                            // Swap to local fallback image so the card keeps an image
+                            (e.currentTarget as HTMLImageElement).src = '/images/event-fallback.svg';
+                          }}
+                          onLoad={() => {
+                            console.log('✓ Image loaded for event:', event._id);
+                            setImageLoadedStatus(prev => ({ ...prev, [event._id]: true }));
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-linear-to-br from-green-500 via-emerald-500 to-teal-500 flex items-center justify-center rounded-t-lg">
+                          <Calendar className="w-12 h-12 text-white opacity-50" />
+                        </div>
+                      )}
                     </div>
                     <div className="absolute top-2 right-2">
                       {getStatusBadge(event.status)}
@@ -299,7 +356,7 @@ export default function HostEventsPage() {
                           </div>
                           <div className="flex items-center space-x-2">
                             <MapPin className="w-4 h-4" />
-                            <span>{event.location.venue}</span>
+                            <span>{event.location?.venue || 'No location'}</span>
                           </div>
                         </div>
                       </div>
@@ -338,12 +395,21 @@ export default function HostEventsPage() {
                             View
                           </Button>
                         </Link>
-                        <Link href={`/dashboard/host/events/${event._id}/edit`}>
+                        <Link href={`/dashboard/host/events/edit/${event._id}`}>
                           <Button size="sm" variant="outline">
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
                           </Button>
                         </Link>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={() => handleDeleteEvent(event._id)}
+                          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -382,8 +448,29 @@ export default function HostEventsPage() {
                 <Card key={event._id} className="group hover:shadow-lg transition-all duration-200">
                   <CardHeader className="p-0">
                     <div className="relative">
-                      <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-lg flex items-center justify-center">
-                        <Calendar className="w-12 h-12 text-gray-400" />
+                      <div className="w-full h-48 bg-gray-200 rounded-t-lg flex items-center justify-center overflow-hidden">
+                        {event.image && imageLoadedStatus[event._id] !== false ? (
+                          <img 
+                            src={event.image} 
+                            alt={event.title}
+                            className="w-full h-full object-cover rounded-t-lg"
+                            loading="lazy"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              console.warn('Image failed to load for event:', event._id, 'URL:', event.image);
+                              // Swap to local fallback image so the card keeps an image
+                              (e.currentTarget as HTMLImageElement).src = '/images/event-fallback.svg';
+                            }}
+                            onLoad={() => {
+                              console.log('✓ Image loaded for event:', event._id);
+                              setImageLoadedStatus(prev => ({ ...prev, [event._id]: true }));
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-linear-to-br from-green-500 via-emerald-500 to-teal-500 flex items-center justify-center rounded-t-lg">
+                            <Calendar className="w-12 h-12 text-white opacity-50" />
+                          </div>
+                        )}
                       </div>
                       <div className="absolute top-2 right-2">
                         {getStatusBadge(event.status)}
@@ -410,7 +497,7 @@ export default function HostEventsPage() {
                             </div>
                             <div className="flex items-center space-x-2">
                               <MapPin className="w-4 h-4" />
-                              <span>{event.location.venue}</span>
+                              <span>{event.location?.venue || 'No location'}</span>
                             </div>
                           </div>
                         </div>
@@ -440,12 +527,21 @@ export default function HostEventsPage() {
                               View
                             </Button>
                           </Link>
-                          <Link href={`/dashboard/host/events/${event._id}/edit`}>
+                          <Link href={`/dashboard/host/events/edit/${event._id}`}>
                             <Button size="sm" variant="outline">
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
                             </Button>
                           </Link>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleDeleteEvent(event._id)}
+                            className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -474,6 +570,8 @@ export default function HostEventsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete modal removed - now using direct delete with toast */}
     </div>
   );
 }

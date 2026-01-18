@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   Card, 
@@ -10,79 +10,45 @@ import {
   CardHeader, 
   CardTitle,
   CardDescription 
-} from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/app/components/ui/skeleton';
+} from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Badge } from '../../../components/ui/badge';
+import { Progress } from '../../../components/ui/progress';
+import { Skeleton } from '../../../components/ui/skeleton';
 import { 
   Users, 
   Calendar, 
   DollarSign, 
-  AlertTriangle, 
   TrendingUp, 
   TrendingDown,
   Settings, 
-  UserCheck, 
-  UserX, 
   CheckCircle,
   Shield,
   BarChart3,
   Bell,
   Activity,
-  Clock,
   Server,
-  FileText,
   CreditCard,
   Database,
-  Cpu,
   Zap,
-  Lock,
-  Eye,
-  Edit,
-  Trash2,
   ChevronRight,
   Target,
-  Award,
   LineChart,
   PieChart,
-  BarChart4,
-  Sparkles,
   Rocket,
   Crown,
   Star,
-  Heart,
   TrendingUp as TrendingUpIcon,
   Users as UsersIcon,
   CalendarDays,
-  Wallet,
-  Network,
-  Cpu as CpuIcon,
-  HardDrive,
   ShieldCheck,
   AlertCircle,
   RefreshCw,
-  Download
+  UserCog,
+  CalendarCheck
 } from 'lucide-react';
-import { 
-  fetchEvents, 
-  fetchUserBookings, 
-  fetchUserJoinedEvents, 
-  confirmPayment, 
-  createPaymentIntent, 
-  fetchBookingDetails, 
-  createReview, 
-  joinEvent,
-  fetchAdminStats,
-  fetchSystemAlerts,
-  fetchUserGrowthData,
-  fetchRevenueData,
-  fetchTopPerformers
-} from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
-  LineChart as RechartsLineChart,
-  Line,
   BarChart,
   Bar,
   PieChart as RechartsPieChart,
@@ -102,6 +68,136 @@ import {
   PolarRadiusAxis,
   Radar
 } from 'recharts';
+import api from '@/app/lib/api';
+
+// Define interfaces based on your API response structure
+interface DashboardStats {
+  users: {
+    total: number;
+    active: number;
+    verified: number;
+    banned: number;
+  };
+  events: {
+    total: number;
+    active: number;
+    completed: number;
+    cancelled: number;
+  };
+  bookings: {
+    total: number;
+    confirmed: number;
+    pending: number;
+    cancelled: number;
+  };
+  revenue: {
+    total: number;
+    lastMonth: number;
+    currency: string;
+  };
+}
+
+interface RecentActivity {
+  type: string;
+  message: string;
+  timestamp: string;
+  user?: string;
+  event?: string;
+  amount?: number;
+  status?: string;
+  eventTitle?: string;
+  role?: string;
+}
+
+interface DashboardData {
+  success: boolean;
+  message: string;
+  data: {
+    stats: DashboardStats;
+    recentActivity: RecentActivity[];
+  };
+  timestamp: string;
+}
+
+interface UserAnalytics {
+  success: boolean;
+  message: string;
+  data: {
+    period: string;
+    totalUsers: number;
+    newUsers: number;
+    activeUsers: number;
+    verifiedUsers: number;
+    usersByRole: Array<{ _id: string; count: number }>;
+    dailyRegistrations: Array<{ _id: string; count: number }>;
+    topHosts: Array<{
+      _id: string;
+      fullName: string;
+      email: string;
+      averageRating: number;
+      hostedEventsCount: number;
+    }>;
+  };
+}
+
+interface EventsAnalytics {
+  success: boolean;
+  message: string;
+  data: {
+    period: string;
+    totalEvents: number;
+    newEvents: number;
+    upcomingEvents: number;
+    pastEvents: number;
+    eventsByCategory: Array<{ _id: string; count: number }>;
+    eventsByStatus: Array<{ _id: string; count: number }>;
+    dailyEventCreations: Array<{ _id: string; count: number }>;
+    topRatedEvents: Array<{
+      _id: string;
+      title: string;
+      category: string;
+      price: number;
+    }>;
+    popularEvents: Array<{
+      _id: string;
+      title: string;
+      category: string;
+      attendeesCount: number;
+    }>;
+  };
+}
+
+interface RevenueAnalytics {
+  success: boolean;
+  message: string;
+  data: {
+    period: string;
+    summary: {
+      _id: null;
+      totalRevenue: number;
+      totalBookings: number;
+      averageBookingValue: number;
+    };
+    dailyRevenue: Array<{
+      _id: string;
+      revenue: number;
+      bookings: number;
+    }>;
+    revenueByCategory: Array<{
+      _id: string;
+      revenue: number;
+      bookings: number;
+    }>;
+    topRevenueEvents: Array<{
+      _id: string;
+      revenue: number;
+      bookings: number;
+      eventId: string;
+      eventTitle: string;
+      category: string;
+    }>;
+  };
+}
 
 interface AdminStats {
   totalUsers: number;
@@ -120,6 +216,14 @@ interface AdminStats {
   revenueGrowth: number;
   eventGrowth: number;
   platformUptime: number;
+}
+
+interface TopPerformer {
+  name: string;
+  role: string;
+  rating: number;
+  events: number;
+  revenue: number;
 }
 
 interface SystemAlert {
@@ -144,12 +248,6 @@ interface AdminAction {
   graphic: 'chart' | 'users' | 'calendar' | 'shield' | 'dollar' | 'settings';
 }
 
-interface ChartData {
-  name: string;
-  value: number;
-  fill: string;
-}
-
 interface PerformanceMetric {
   label: string;
   value: number;
@@ -160,6 +258,15 @@ interface PerformanceMetric {
   color: string;
 }
 
+
+
+const platformMetrics = [
+  { name: 'Response Time', value: 85, target: 90, color: '#10B981' },
+  { name: 'Uptime', value: 99.8, target: 99.9, color: '#3B82F6' },
+  { name: 'Error Rate', value: 0.2, target: 0.1, color: '#F59E0B' },
+  { name: 'User Satisfaction', value: 4.7, target: 4.8, color: '#8B5CF6' },
+];
+
 export default function AdminLayout({
   children,
 }: {
@@ -167,70 +274,263 @@ export default function AdminLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
-  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
-  const [userGrowthData, setUserGrowthData] = useState<any[]>([]);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
+  const [eventsAnalytics, setEventsAnalytics] = useState<EventsAnalytics | null>(null);
+  const [revenueAnalytics, setRevenueAnalytics] = useState<RevenueAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [dataLoading, setDataLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
 
-  // Static data that doesn't come from API
-  const eventCategoryData = [
-    { name: 'Workshops', value: 35, color: '#3B82F6' },
-    { name: 'Conferences', value: 25, color: '#8B5CF6' },
-    { name: 'Meetups', value: 20, color: '#10B981' },
-    { name: 'Seminars', value: 15, color: '#F59E0B' },
-    { name: 'Webinars', value: 5, color: '#EF4444' },
-  ];
-
-  const platformMetrics = [
-    { name: 'Response Time', value: 85, target: 90, color: '#10B981' },
-    { name: 'Uptime', value: 99.8, target: 99.9, color: '#3B82F6' },
-    { name: 'Error Rate', value: 0.2, target: 0.1, color: '#F59E0B' },
-    { name: 'User Satisfaction', value: 4.7, target: 4.8, color: '#8B5CF6' },
-  ];
-
-  const performanceMetrics: PerformanceMetric[] = adminStats ? [
-    {
-      label: 'User Growth',
-      value: adminStats.userGrowth,
-      target: 15,
-      unit: '%',
-      trend: 'up',
-      icon: TrendingUpIcon,
-      color: 'green'
-    },
-    {
-      label: 'Revenue Growth',
-      value: adminStats.revenueGrowth,
-      target: 20,
-      unit: '%',
-      trend: 'up',
-      icon: DollarSign,
-      color: 'emerald'
-    },
-    {
-      label: 'Event Completion',
-      value: ((adminStats.completedEvents / adminStats.totalEvents) * 100),
-      target: 80,
-      unit: '%',
-      trend: 'up',
-      icon: CheckCircle,
-      color: 'blue'
-    },
-    {
-      label: 'Platform Uptime',
-      value: adminStats.platformUptime,
-      target: 99.9,
-      unit: '%',
-      trend: 'stable',
-      icon: Server,
-      color: 'purple'
+  const fetchAdminStats = async (): Promise<DashboardData | null> => {
+    try {
+      const response = await api.get('/admin/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+      return null;
     }
-  ] : [];
+  };
+
+  const fetchUserAnalytics = async () => {
+    try {
+      const response = await api.get('/admin/analytics/users', { baseURL: '/api' });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user analytics:', error);
+      return null;
+    }
+  };
+
+  const fetchRevenueAnalytics = async () => {
+    try {
+      const response = await api.get('/admin/analytics/revenue', { baseURL: '/api' });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching revenue analytics:', error);
+      return null;
+    }
+  };
+
+  const fetchEventsAnalytics = async () => {
+    try {
+      const response = await api.get('/admin/analytics/events', { baseURL: '/api' });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching events analytics:', error);
+      return null;
+    }
+  };
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setIsRefreshing(true);
+
+      // Fetch all data in parallel
+      const [dashboardStats, userGrowth, revenue, events] = await Promise.all([
+        fetchAdminStats(),
+        fetchUserAnalytics(),
+        fetchRevenueAnalytics(),
+        fetchEventsAnalytics()
+      ]);
+
+      console.log('📊 Data received:', {
+        dashboard: dashboardStats?.success,
+        userAnalytics: userGrowth?.success,
+        revenueAnalytics: revenue?.success,
+        eventsAnalytics: events?.success
+      });
+
+      if (dashboardStats?.success) {
+        setDashboardData(dashboardStats);
+      } else {
+        console.error('❌ Failed to fetch dashboard stats');
+        toast.error('Failed to load dashboard statistics');
+      }
+
+      if (userGrowth?.success) {
+        setUserAnalytics(userGrowth);
+      }
+
+      if (revenue?.success) {
+        setRevenueAnalytics(revenue);
+      }
+
+      if (events?.success) {
+        setEventsAnalytics(events);
+      }
+
+
+    } catch (error: Error | unknown) {
+      console.error('💥 Error in fetchDashboardData:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load dashboard data';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Process dashboard data into AdminStats format
+  const getAdminStats = (): AdminStats => {
+    if (!dashboardData) {
+      return {
+        totalUsers: 0,
+        verifiedUsers: 0,
+        bannedUsers: 0,
+        pendingUsers: 0,
+        totalEvents: 0,
+        activeEvents: 0,
+        completedEvents: 0,
+        cancelledEvents: 0,
+        totalRevenue: 0,
+        pendingApprovals: 0,
+        systemAlerts: 0,
+        serverHealth: 98.5,
+        userGrowth: 0,
+        revenueGrowth: 0,
+        eventGrowth: 0,
+        platformUptime: 99.8
+      };
+    }
+
+    const stats = dashboardData.data.stats;
+    const userAnalyticsData = userAnalytics?.data;
+    const eventsAnalyticsData = eventsAnalytics?.data;
+    const revenueAnalyticsData = revenueAnalytics?.data;
+
+    return {
+      totalUsers: stats.users.total,
+      verifiedUsers: stats.users.verified,
+      bannedUsers: stats.users.banned,
+      pendingUsers: userAnalyticsData?.newUsers || 0,
+      totalEvents: stats.events.total,
+      activeEvents: stats.events.active,
+      completedEvents: stats.events.completed,
+      cancelledEvents: stats.events.cancelled,
+      totalRevenue: stats.revenue.total,
+      pendingApprovals: 0, // You can add this field if your API provides it
+      systemAlerts: 0, // You can add this field if your API provides it
+      serverHealth: 98.5,
+      userGrowth: userAnalyticsData?.newUsers || 0,
+      revenueGrowth: revenueAnalyticsData?.summary.totalRevenue || 0,
+      eventGrowth: eventsAnalyticsData?.newEvents || 0,
+      platformUptime: 99.8
+    };
+  };
+
+  const getSystemAlerts = (): SystemAlert[] => {
+    if (!dashboardData) return [];
+    
+    return dashboardData.data.recentActivity.slice(0, 5).map((activity, index) => ({
+      id: `alert-${index}`,
+      title: activity.type === 'booking_created' ? 'New Booking' :
+             activity.type === 'event_created' ? 'New Event Created' :
+             activity.type === 'user_signup' ? 'New User Signup' : 'System Activity',
+      description: activity.message,
+      severity: activity.type === 'booking_created' && activity.amount && activity.amount > 0 ? 'high' : 'low',
+      timestamp: activity.timestamp,
+      actionRequired: false,
+      icon: activity.type === 'booking_created' ? 'credit-card' :
+            activity.type === 'event_created' ? 'calendar' :
+            activity.type === 'user_signup' ? 'users' : 'activity'
+    }));
+  };
+
+  const getUserGrowthChartData = () => {
+    if (!userAnalytics?.data) return [];
+
+    const data = userAnalytics.data as Record<string, unknown>;
+    const { dailyRegistrations, chartData, dailyData } = data;
+    const source = dailyRegistrations || chartData || dailyData;
+    if (!Array.isArray(source)) return [];
+
+    return source.map((reg: Record<string, unknown>) => {
+      const dateStr = String(reg._id ?? reg.date ?? '');
+      return {
+        name: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        users: Number(reg.count ?? reg.newUsers ?? reg.activeUsers ?? 0),
+      };
+    });
+  };
+
+  const getRevenueChartData = () => {
+    if (!revenueAnalytics?.data) return [];
+
+    const data = revenueAnalytics.data as Record<string, unknown>;
+    const { dailyRevenue, chartData, dailyData } = data;
+    const source = dailyRevenue || chartData || dailyData;
+    if (!Array.isArray(source)) return [];
+
+    return source.map((rev: Record<string, unknown>) => {
+      const dateStr = String(rev._id ?? rev.date ?? '');
+      return {
+        name: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        revenue: Number(rev.revenue ?? rev.totalRevenue ?? rev.netRevenue ?? 0),
+        bookings: Number(rev.bookings ?? rev.transactions ?? 0),
+      };
+    });
+  };
+
+  const getTopPerformers = (): TopPerformer[] => {
+    if (!userAnalytics?.data) return [];
+
+    const data = userAnalytics.data as Record<string, unknown>;
+    const { topHosts, topPerformers, topUsers } = data;
+    const source = topHosts || topPerformers || topUsers;
+    if (!Array.isArray(source)) return [];
+
+    return source.map((host: Record<string, unknown>): TopPerformer => ({
+      name: String(host.fullName ?? host.name ?? 'Unknown'),
+      role: String(host.role ?? 'Host'),
+      rating: Number(host.averageRating ?? host.rating ?? 0),
+      events: Number(host.hostedEventsCount ?? host.events ?? host.totalEvents ?? 0),
+      revenue: Number(host.revenue ?? 0),
+    }));
+  };
+
+  const performanceMetrics: PerformanceMetric[] = (() => {
+    const stats = getAdminStats();
+    return [
+      {
+        label: 'User Growth',
+        value: stats.userGrowth,
+        target: 10,
+        unit: ' users',
+        trend: 'up',
+        icon: TrendingUpIcon,
+        color: 'green'
+      },
+      {
+        label: 'Revenue Growth',
+        value: stats.revenueGrowth,
+        target: 1000,
+        unit: ' USD',
+        trend: 'up',
+        icon: DollarSign,
+        color: 'emerald'
+      },
+      {
+        label: 'Event Completion',
+        value: stats.completedEvents > 0 ? ((stats.completedEvents / stats.totalEvents) * 100) : 0,
+        target: 80,
+        unit: '%',
+        trend: stats.completedEvents > 0 ? 'up' : 'stable',
+        icon: CheckCircle,
+        color: 'blue'
+      },
+      {
+        label: 'Platform Uptime',
+        value: stats.platformUptime,
+        target: 99.9,
+        unit: '%',
+        trend: 'stable',
+        icon: Server,
+        color: 'purple'
+      }
+    ];
+  })();
 
   useEffect(() => {
     if (!loading) {
@@ -242,54 +542,27 @@ export default function AdminLayout({
         router.push('/dashboard');
         return;
       }
-      // Fetch dashboard data when user is authenticated and is admin
       fetchDashboardData();
     }
-  }, [user, loading, router]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Fetch all data in parallel
-      const [stats, alerts, userGrowth, revenue, performers] = await Promise.all([
-        fetchAdminStats(),
-        fetchSystemAlerts(),
-        fetchUserGrowthData(),
-        fetchRevenueData(),
-        fetchTopPerformers()
-      ]);
-      
-      setAdminStats(stats);
-      setSystemAlerts(alerts);
-      setUserGrowthData(userGrowth);
-      setRevenueData(revenue);
-      setTopPerformers(performers);
-      
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [user, loading, router, fetchDashboardData]);
 
   const handleRefresh = async () => {
-    try {
-      setDataLoading(true);
+    try { 
+      setIsRefreshing(true);
       await fetchDashboardData();
       toast.success('Dashboard refreshed successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to refresh dashboard');
     } finally {
-      setDataLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   const formatCurrency = (amount: number) => {
+    const currency = dashboardData?.data.stats.revenue.currency || 'USD';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -330,34 +603,43 @@ export default function AdminLayout({
 
   const getIconComponent = (icon: string) => {
     switch (icon) {
-      case 'cpu': return CpuIcon;
+      case 'cpu': return Server;
       case 'database': return Database;
       case 'shield': return Shield;
       case 'credit-card': return CreditCard;
+      case 'calendar': return Calendar;
+      case 'users': return Users;
+      case 'activity': return Activity;
       default: return AlertCircle;
     }
   };
 
-  const adminActions: AdminAction[] = adminStats ? [
+  const adminStats = getAdminStats();
+  const systemAlerts = getSystemAlerts();
+  const userGrowthData = getUserGrowthChartData();
+  const revenueData = getRevenueChartData();
+  const topPerformers = getTopPerformers();
+
+  const adminActions: AdminAction[] = [
     {
       title: 'User Management',
       description: 'Manage all platform users',
-      icon: Users,
+      icon: UserCog,
       href: '/dashboard/admin/users',
       color: 'blue',
       gradient: 'from-blue-500 to-cyan-500',
-      badge: adminStats.pendingUsers,
+      badge: userAnalytics?.data.newUsers || 0,
       variant: 'default',
       graphic: 'users'
     },
     {
       title: 'Event Control',
       description: 'Monitor and manage events',
-      icon: Calendar,
+      icon: CalendarCheck,
       href: '/dashboard/admin/events',
       color: 'purple',
       gradient: 'from-purple-500 to-pink-500',
-      badge: adminStats.activeEvents,
+      badge: eventsAnalytics?.data.newEvents || 0,
       variant: 'outline',
       graphic: 'calendar'
     },
@@ -368,7 +650,7 @@ export default function AdminLayout({
       href: '/dashboard/admin/hosts',
       color: 'green',
       gradient: 'from-emerald-500 to-green-500',
-      badge: adminStats.pendingApprovals,
+      badge: 0,
       variant: 'outline',
       graphic: 'shield'
     },
@@ -389,6 +671,7 @@ export default function AdminLayout({
       href: '/dashboard/admin/reports',
       color: 'emerald',
       gradient: 'from-emerald-500 to-teal-500',
+      badge: revenueAnalytics?.data.summary.totalBookings || 0,
       variant: 'outline',
       graphic: 'dollar'
     },
@@ -402,11 +685,11 @@ export default function AdminLayout({
       variant: 'outline',
       graphic: 'settings'
     }
-  ] : [];
+  ];
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 via-gray-100 to-gray-200">
         <div className="max-w-7xl mx-auto p-4 sm:p-6">
           <Skeleton className="h-12 w-64 mb-6" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -424,20 +707,23 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-gray-100 to-gray-200">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-        {/* Header with animated gradient */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-6 text-white shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
+        {/* Header with connection status */}
+        <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 p-6 text-white shadow-2xl">
+          <div className="absolute inset-0 bg-linear-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
           <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
                   <Shield className="w-8 h-8" />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-100">
-                  Admin Command Center
-                </h1>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-blue-100">
+                    Admin Command Center
+                  </h1>
+                 
+                </div>
               </div>
               <p className="text-blue-100">
                 Complete oversight and control of platform operations
@@ -449,25 +735,40 @@ export default function AdminLayout({
                 size="sm"
                 onClick={handleRefresh}
                 className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border-white/30"
-                disabled={isLoading}
+                disabled={isRefreshing}
               >
-                {isLoading ? (
+                {isRefreshing ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Zap className="w-4 h-4 mr-2" />
                 )}
-                Refresh
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
               <Badge className="bg-white/20 backdrop-blur-sm border-white/30">
                 <Activity className="w-3 h-3 mr-1" />
-                {adminStats?.serverHealth || 0}% Healthy
+                {adminStats.serverHealth}% Healthy
               </Badge>
             </div>
           </div>
         </div>
 
-        {/* Stats Overview with animated cards */}
-        {adminStats && (
+        {/* Stats Overview */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="border-0 shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
@@ -476,7 +777,7 @@ export default function AdminLayout({
                 description: 'Registered users',
                 icon: Users,
                 color: 'blue',
-                trend: `${adminStats.userGrowth}%`,
+                trend: `${userAnalytics?.data.newUsers || 0} new`,
                 gradient: 'from-blue-500 to-cyan-500'
               },
               {
@@ -485,7 +786,7 @@ export default function AdminLayout({
                 description: 'Currently running',
                 icon: Activity,
                 color: 'green',
-                trend: `${adminStats.eventGrowth}%`,
+                trend: `${eventsAnalytics?.data.newEvents || 0} new`,
                 gradient: 'from-emerald-500 to-green-500'
               },
               {
@@ -494,7 +795,7 @@ export default function AdminLayout({
                 description: 'All time earnings',
                 icon: DollarSign,
                 color: 'purple',
-                trend: `${adminStats.revenueGrowth}%`,
+                trend: `${revenueAnalytics?.data.summary.totalBookings || 0} bookings`,
                 isCurrency: true,
                 gradient: 'from-purple-500 to-pink-500'
               },
@@ -509,96 +810,106 @@ export default function AdminLayout({
                 isPercentage: true
               }
             ].map((stat, index) => (
-            <Card 
-              key={index} 
-              className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-white to-gray-50"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-lg`}>
-                  <stat.icon className="w-4 h-4 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900 mb-1">
-                  {stat.isCurrency ? formatCurrency(stat.value) : stat.isPercentage ? `${formatNumber(stat.value)}%` : formatNumber(stat.value)}
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">{stat.description}</p>
-                  <Badge className={`text-xs bg-${stat.color}-100 text-${stat.color}-800`}>
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    {stat.trend}
-                  </Badge>
-                </div>
-                <div className="mt-3">
-                  <Progress value={75} className={`h-1 bg-${stat.color}-100`} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              <Card 
+                key={index} 
+                className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer bg-linear-to-br from-white to-gray-50"
+              >
+                <div className={`absolute inset-0 bg-linear-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-xl bg-linear-to-br ${stat.gradient} shadow-lg`}>
+                    <stat.icon className="w-4 h-4 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    {stat.isCurrency ? formatCurrency(stat.value) : stat.isPercentage ? `${formatNumber(stat.value)}%` : formatNumber(stat.value)}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">{stat.description}</p>
+                    <Badge className={`text-xs bg-${stat.color}-100 text-${stat.color}-800`}>
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      {stat.trend}
+                    </Badge>
+                  </div>
+                  <div className="mt-3">
+                    <Progress value={75} className={`h-1 bg-${stat.color}-100`} />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Performance Metrics with Charts */}
-        {adminStats && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* User Growth Chart */}
-            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-blue-500" />
-                    User Growth Trend
-                  </CardTitle>
-                  <Badge variant="outline" className="text-xs">
-                    +{adminStats.userGrowth}% MoM
-                  </Badge>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* User Growth Chart */}
+          <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-500" />
+                  User Growth Trend
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  +{userAnalytics?.data.newUsers || 0} New Users
+                </Badge>
+              </div>
               <CardDescription>
-                6-month user acquisition performance
+                User registration trend over time
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={userGrowthData}>
-                    <defs>
-                      <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#6B7280"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="#6B7280"
-                      fontSize={12}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="users" 
-                      stroke="#3B82F6" 
-                      strokeWidth={2}
-                      fill="url(#colorUsers)" 
-                      activeDot={{ r: 6, fill: '#1D4ED8' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Skeleton className="h-48 w-full" />
+                  </div>
+                ) : userGrowthData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={userGrowthData}>
+                      <defs>
+                        <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#6B7280"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="#6B7280"
+                        fontSize={12}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="users" 
+                        stroke="#3B82F6" 
+                        strokeWidth={2}
+                        fill="url(#colorUsers)" 
+                        activeDot={{ r: 6, fill: '#1D4ED8' }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                    <Users className="w-12 h-12 mb-2" />
+                    <p>No user growth data available</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -609,63 +920,72 @@ export default function AdminLayout({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-emerald-500" />
-                  Weekly Revenue
+                  Revenue Trend
                 </CardTitle>
                 <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-800">
-                  +{adminStats.revenueGrowth}% Growth
+                  Total: {formatCurrency(revenueAnalytics?.data.summary.totalRevenue || 0)}
                 </Badge>
               </div>
               <CardDescription>
-                Daily revenue performance for the week
+                Daily revenue performance
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#6B7280"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="#6B7280"
-                      fontSize={12}
-                      tickFormatter={(value) => `$${value/1000}k`}
-                    />
-                    <Tooltip 
-                      formatter={(value) => [`$${value}`, 'Revenue']}
-                      contentStyle={{ 
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="revenue" 
-                      fill="url(#colorRevenue)" 
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={1500}
-                    />
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.9}/>
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.2}/>
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Skeleton className="h-48 w-full" />
+                  </div>
+                ) : revenueData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#6B7280"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="#6B7280"
+                        fontSize={12}
+                        tickFormatter={(value) => `$${value}`}
+                      />
+                      <Tooltip 
+                        formatter={(value) => [`$${value}`, 'Revenue']}
+                        contentStyle={{ 
+                          backgroundColor: 'white',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        }}
+                      />
+                      <Bar 
+                        dataKey="revenue" 
+                        fill="url(#colorRevenue)" 
+                        radius={[4, 4, 0, 0]}
+                        animationDuration={1500}
+                      />
+                      <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.9}/>
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0.2}/>
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                    <DollarSign className="w-12 h-12 mb-2" />
+                    <p>No revenue data available</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
-        )}
 
-        {/* Admin Actions Grid with Visual Graphics */}
-        {adminStats && adminActions.length > 0 && (
-          <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
+        {/* Admin Actions Grid */}
+        <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -685,10 +1005,8 @@ export default function AdminLayout({
               {adminActions.map((action, index) => (
                 <Link key={index} href={action.href}>
                   <div className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer">
-                    {/* Background gradient effect */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                    <div className={`absolute inset-0 bg-linear-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
                     
-                    {/* Graphic visualization */}
                     <div className="absolute top-4 right-4 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
                       {action.graphic === 'chart' && (
                         <div className="relative w-16 h-16">
@@ -714,7 +1032,7 @@ export default function AdminLayout({
 
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-3">
-                        <div className={`p-2 rounded-lg bg-gradient-to-br ${action.gradient} shadow-lg`}>
+                        <div className={`p-2 rounded-lg bg-linear-to-br ${action.gradient} shadow-lg`}>
                           <action.icon className="w-5 h-5 text-white" />
                         </div>
                         {action.badge && action.badge > 0 && (
@@ -736,7 +1054,6 @@ export default function AdminLayout({
             </div>
           </CardContent>
         </Card>
-        )}
 
         {/* System Status and Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -797,13 +1114,13 @@ export default function AdminLayout({
             </CardContent>
           </Card>
 
-          {/* System Alerts with Visual Indicators */}
+          {/* System Alerts */}
           <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Bell className="w-5 h-5 text-red-500 animate-pulse" />
-                  System Alerts
+                  Recent Activity
                   {systemAlerts.filter(a => a.severity === 'critical' || a.severity === 'high').length > 0 && (
                     <span className="flex h-2 w-2">
                       <span className="animate-ping absolute h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
@@ -812,63 +1129,82 @@ export default function AdminLayout({
                   )}
                 </CardTitle>
                 <Badge variant="outline" className="text-xs">
-                  {systemAlerts.length} Active Alerts
+                  {systemAlerts.length} Activities
                 </Badge>
               </div>
               <CardDescription>
-                Real-time system monitoring
+                Latest platform activities
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                {systemAlerts.map((alert) => {
-                  const Icon = getIconComponent(alert.icon);
-                  return (
-                    <div 
-                      key={alert.id}
-                      className={`relative p-4 rounded-xl border-2 hover:shadow-md transition-all duration-200 ${
-                        alert.severity === 'critical' ? 'border-red-200 bg-gradient-to-r from-red-50 to-red-100' :
-                        alert.severity === 'high' ? 'border-orange-200 bg-gradient-to-r from-orange-50 to-orange-100' :
-                        alert.severity === 'medium' ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-yellow-100' :
-                        'border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100'
-                      }`}
-                    >
-                      {/* Severity indicator bar */}
-                      <div 
-                        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
-                        style={{ backgroundColor: getSeverityColor(alert.severity) }}
-                      ></div>
-                      
-                      <div className="flex items-start gap-3 ml-2">
-                        <div className={`p-2 rounded-lg bg-gradient-to-br ${getSeverityGradient(alert.severity)}`}>
-                          <Icon className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold text-gray-900">{alert.title}</h4>
-                            <span className="text-xs text-gray-500">{formatDate(alert.timestamp)}</span>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{alert.description}</p>
-                          <div className="flex items-center justify-between">
-                            <Badge className={`capitalize ${
-                              alert.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                              alert.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                              alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-blue-100 text-blue-800'
-                            }`}>
-                              {alert.severity} Priority
-                            </Badge>
-                            {alert.actionRequired && (
-                              <Button size="sm" variant="destructive" className="text-xs h-7">
-                                Take Action
-                              </Button>
-                            )}
-                          </div>
+              <div className="space-y-4 max-h-75 overflow-y-auto pr-2">
+                {isLoading ? (
+                  [...Array(3)].map((_, i) => (
+                    <div key={i} className="p-4 rounded-xl border border-gray-200">
+                      <div className="flex items-start gap-3">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-48" />
+                          <Skeleton className="h-6 w-20" />
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                  ))
+                ) : systemAlerts.length > 0 ? (
+                  systemAlerts.map((alert) => {
+                    const Icon = getIconComponent(alert.icon);
+                    return (
+                      <div 
+                        key={alert.id}
+                        className={`relative p-4 rounded-xl border-2 hover:shadow-md transition-all duration-200 ${
+                          alert.severity === 'critical' ? 'border-red-200 bg-linear-to-r from-red-50 to-red-100' :
+                          alert.severity === 'high' ? 'border-orange-200 bg-linear-to-r from-orange-50 to-orange-100' :
+                          alert.severity === 'medium' ? 'border-yellow-200 bg-linear-to-r from-yellow-50 to-yellow-100' :
+                          'border-blue-200 bg-linear-to-r from-blue-50 to-blue-100'
+                        }`}
+                      >
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                          style={{ backgroundColor: getSeverityColor(alert.severity) }}
+                        ></div>
+                        
+                        <div className="flex items-start gap-3 ml-2">
+                          <div className={`p-2 rounded-lg bg-linear-to-br ${getSeverityGradient(alert.severity)}`}>
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-semibold text-gray-900">{alert.title}</h4>
+                              <span className="text-xs text-gray-500">{formatDate(alert.timestamp)}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{alert.description}</p>
+                            <div className="flex items-center justify-between">
+                              <Badge className={`capitalize ${
+                                alert.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                                alert.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {alert.severity} Priority
+                              </Badge>
+                              {alert.actionRequired && (
+                                <Button size="sm" variant="destructive" className="text-xs h-7">
+                                  Take Action
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Bell className="w-12 h-12 mx-auto mb-2" />
+                    <p>No recent activity</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -900,7 +1236,7 @@ export default function AdminLayout({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-gray-900">
-                          {metric.value?.toFixed(1) || '0'}{metric.unit}
+                          {metric.value?.toFixed(1)}{metric.unit}
                         </span>
                         {metric.trend === 'up' ? (
                           <TrendingUp className="w-4 h-4 text-green-500" />
@@ -915,7 +1251,7 @@ export default function AdminLayout({
                         className={`h-2 bg-${metric.color}-100`}
                       />
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>Current: {metric.value?.toFixed(1) || '0'}{metric.unit}</span>
+                        <span>Current: {metric.value?.toFixed(1)}{metric.unit}</span>
                         <span>Target: {metric.target}{metric.unit}</span>
                       </div>
                     </div>
@@ -930,7 +1266,7 @@ export default function AdminLayout({
             <CardHeader className="pb-4">
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Crown className="w-5 h-5 text-yellow-500" />
-                Top Performers
+                Top Hosts
               </CardTitle>
               <CardDescription>
                 Leading hosts and organizers
@@ -938,112 +1274,158 @@ export default function AdminLayout({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topPerformers?.map((performer, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                          {performer.name.charAt(0)}
+                {isLoading ? (
+                  [...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-10 h-10 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-3 w-24" />
+                          <Skeleton className="h-2 w-16" />
                         </div>
-                        {index === 0 && (
-                          <div className="absolute -top-1 -right-1">
-                            <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                      </div>
+                      <Skeleton className="h-8 w-20" />
+                    </div>
+                  ))
+                ) : topPerformers.length > 0 ? (
+                  topPerformers.map((performer, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                            {performer.name.charAt(0)}
                           </div>
-                        )}
+                          {index === 0 && (
+                            <div className="absolute -top-1 -right-1">
+                              <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{performer.name}</p>
+                          <p className="text-xs text-gray-500">{performer.role}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{performer.name}</p>
-                        <p className="text-xs text-gray-500">{performer.role}</p>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 mb-1 justify-end">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                          <span className="font-semibold">{performer.rating.toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {performer.events} events
+                          </Badge>
+                          {performer.revenue > 0 && (
+                            <span className="text-xs font-medium text-emerald-600">
+                              {formatCurrency(performer.revenue)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 mb-1 justify-end">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="font-semibold">{performer.rating}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {performer.events} events
-                        </Badge>
-                        <span className="text-xs font-medium text-emerald-600">
-                          {formatCurrency(performer.revenue)}
-                        </span>
-                      </div>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Crown className="w-12 h-12 mx-auto mb-2" />
+                    <p>No hosts data available</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Event Categories Pie Chart */}
+        {/* Event Categories */}
         <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <PieChart className="w-5 h-5 text-pink-500" />
-              Event Categories Distribution
+              Event Categories
             </CardTitle>
             <CardDescription>
-              Breakdown of event types on platform
+              Distribution of event types on platform
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={eventCategoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      animationDuration={1000}
-                    >
-                      {eventCategoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => [`${value} events`, 'Count']}
-                      contentStyle={{ 
-                        backgroundColor: 'white',
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Legend />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
+                {eventsAnalytics?.data.eventsByCategory && eventsAnalytics.data.eventsByCategory.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={eventsAnalytics.data.eventsByCategory.map((cat, index) => ({
+                          name: cat._id.charAt(0).toUpperCase() + cat._id.slice(1),
+                          value: cat.count,
+                          color: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'][index % 5]
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        animationDuration={1000}
+                      >
+                        {eventsAnalytics.data.eventsByCategory.map((_, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'][index % 5]} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value) => [`${value} events`, 'Count']}
+                        contentStyle={{ 
+                          backgroundColor: 'white',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                    <PieChart className="w-12 h-12 mb-2" />
+                    <p>No category data available</p>
+                  </div>
+                )}
               </div>
               <div className="space-y-4">
-                {eventCategoryData.map((category, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: category.color }}
-                      ></div>
-                      <span className="text-sm font-medium text-gray-700">{category.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-gray-900">{category.value}%</span>
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                {eventsAnalytics?.data.eventsByCategory ? (
+                  eventsAnalytics.data.eventsByCategory.map((category, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <div 
-                          className="h-2 rounded-full"
+                          className="w-3 h-3 rounded-full" 
                           style={{ 
-                            width: `${category.value}%`,
-                            backgroundColor: category.color
+                            backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'][index % 5]
                           }}
                         ></div>
+                        <span className="text-sm font-medium text-gray-700">
+                          {category._id.charAt(0).toUpperCase() + category._id.slice(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-900">{category.count} events</span>
+                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full"
+                            style={{ 
+                              width: `${(category.count / eventsAnalytics.data.totalEvents) * 100}%`,
+                              backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'][index % 5]
+                            }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <p>No category data available</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </CardContent>
@@ -1058,7 +1440,7 @@ export default function AdminLayout({
 
         {/* Platform Summary Footer */}
         {!children && (
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-2xl">
+          <div className="bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-2xl">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="text-center sm:text-left">
                 <h3 className="text-lg font-bold mb-2">Platform Summary</h3>
@@ -1066,19 +1448,19 @@ export default function AdminLayout({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <div className="text-2xl font-bold">{adminStats?.totalUsers || 0}</div>
+                  <div className="text-2xl font-bold">{adminStats.totalUsers}</div>
                   <div className="text-xs text-blue-200">Total Users</div>
                 </div>
                 <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <div className="text-2xl font-bold">{adminStats?.activeEvents || 0}</div>
+                  <div className="text-2xl font-bold">{adminStats.activeEvents}</div>
                   <div className="text-xs text-blue-200">Active Events</div>
                 </div>
                 <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <div className="text-2xl font-bold">{formatCurrency(adminStats?.totalRevenue || 0)}</div>
+                  <div className="text-2xl font-bold">{formatCurrency(adminStats.totalRevenue)}</div>
                   <div className="text-xs text-blue-200">Total Revenue</div>
                 </div>
                 <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                  <div className="text-2xl font-bold">{adminStats?.platformUptime || 0}%</div>
+                  <div className="text-2xl font-bold">{adminStats.platformUptime}%</div>
                   <div className="text-xs text-blue-200">Uptime</div>
                 </div>
               </div>

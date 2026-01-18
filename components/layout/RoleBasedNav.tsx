@@ -78,14 +78,6 @@ export default function RoleBasedNav() {
       });
     }
 
-    if (hasPermission('viewAnalytics')) {
-      baseItems.push({
-        href: '/dashboard/admin/analytics',
-        label: 'Analytics',
-        icon: <BarChart3 className="w-4 h-4" />,
-      });
-    }
-
     if (hasPermission('manageUsers')) {
       baseItems.push({
         href: '/dashboard/admin/users',

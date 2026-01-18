@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -8,13 +9,11 @@ import {
   Download, 
   Filter,
   ArrowUpRight,
-  ArrowDownRight,
   CreditCard,
   PiggyBank,
   Star,
   Users,
-  BarChart3,
-  Settings
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
@@ -23,13 +22,33 @@ import api from '@/app/lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/app/context/AuthContext';
 
-interface Transaction {
-  id: string;
-  eventName: string;
-  date: string;
-  attendees: number;
+interface Payment {
+  _id: string;
+  bookingId: {
+    _id: string;
+    status: string;
+    paymentStatus: string;
+    bookingDate: string;
+  };
+  userId: {
+    _id: string;
+    fullName: string;
+    email: string;
+  };
+  hostId: string;
+  eventId: {
+    _id: string;
+    title: string;
+    category: string;
+    date: string;
+  };
   amount: number;
+  currency: string;
   status: string;
+  paymentMethod: string;
+  paymentIntentId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function HostEarningsPage() {
@@ -37,14 +56,19 @@ export default function HostEarningsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedEvent, setSelectedEvent] = useState('all');
   const [earningsData, setEarningsData] = useState({
-    totalEarnings: 0,
-    thisMonth: 0,
-    lastMonth: 0,
-    pendingPayments: 0,
-    totalEvents: 0,
-    averagePerEvent: 0
+    totalEarned: 0,
+    pendingAmount: 0,
+    refundedAmount: 0,
+    totalPayments: 0,
+    succeededCount: 0,
+    pendingCount: 0,
+    refundedCount: 0,
+    last30Days: {
+      amount: 0,
+      count: 0
+    }
   });
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [hostReviews, setHostReviews] = useState([]);
   const [monthlyEarnings, setMonthlyEarnings] = useState<{ month: string; earnings: number }[]>([]);
   const [hostStats, setHostStats] = useState<{
@@ -60,99 +84,99 @@ export default function HostEarningsPage() {
     activeEvents: 0,
     ratingDistribution: null
   });
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchEarningsData();
-    fetchHostReviews();
-    fetchHostStats();
-  }, [selectedPeriod, selectedEvent]);
+    const fetchHostReviews = async () => {
+      try {
+        const response = await api.get(`/hosts/${user?._id}/rating-stats`);
+        const data = response.data.data;
+        
+        // Update host reviews with the comprehensive data
+        setHostReviews(data.reviews || []);
+        
+        // Update host stats with the rating statistics
+        setHostStats(prev => ({
+          ...prev,
+          totalReviews: data.stats.totalReviews,
+          averageRating: data.stats.averageRating,
+          ratingDistribution: data.stats.ratingDistribution
+        }));
 
-  const fetchHostReviews = async () => {
-    try {
-      const response = await api.get(`/hosts/${user?._id}/rating-stats`);
-      const data = response.data.data;
-      
-      // Update host reviews with the comprehensive data
-      setHostReviews(data.reviews || []);
-      
-      // Update host stats with the rating statistics
-      setHostStats(prev => ({
-        ...prev,
-        totalReviews: data.stats.totalReviews,
-        averageRating: data.stats.averageRating,
-        ratingDistribution: data.stats.ratingDistribution
-      }));
-      
-      // Set monthly earnings data (mock for now, can be replaced with API call)
-      setMonthlyEarnings([
-        { month: 'Aug', earnings: 2100 },
-        { month: 'Sep', earnings: 2450 },
-        { month: 'Oct', earnings: 2890 },
-        { month: 'Nov', earnings: 3200 },
-        { month: 'Dec', earnings: 3240 },
-        { month: 'Jan', earnings: earningsData.thisMonth || 2980 }
-      ] as { month: string; earnings: number }[]);
-    } catch (error: any) {
-      console.error('Failed to fetch host rating stats:', error);
-    }
-  };
-
-  const fetchHostStats = async () => {
-    try {
-      const response = await api.get('/events/my-hosted');
-      const events = response.data.data || [];
-      const activeEvents = events.filter((event: any) => event.status === 'open').length;
-      
-      setHostStats({
-        totalEvents: events.length,
-        activeEvents,
-        totalReviews: hostReviews.length,
-        averageRating: hostReviews.length > 0 
-          ? hostReviews.reduce((sum: number, review: any) => sum + review.rating, 0) / hostReviews.length 
-          : 0,
-        ratingDistribution: null
-      });
-    } catch (error: any) {
-      console.error('Failed to fetch host stats:', error);
-    }
-  };
-
-  const fetchEarningsData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get('/dashboard/earnings', {
-        params: {
-          period: selectedPeriod,
-          eventId: selectedEvent === 'all' ? undefined : selectedEvent
+        // Fetch monthly earnings from API
+        try {
+          const earningsResponse = await api.get(`/hosts/${user?._id}/earnings/monthly`);
+          setMonthlyEarnings(earningsResponse.data.data || []);
+        } catch (err) {
+          console.warn('Monthly earnings endpoint not available', err);
+          setMonthlyEarnings([]);
         }
-      });
-      
-      console.log('Earnings API Response:', response);
-      
-      const data = response.data.data;
-      setEarningsData(data.earnings);
-      setRecentTransactions(data.transactions);
-    } catch (error: any) {
-      console.error('Failed to fetch earnings data:', error);
-      console.error('Response data:', error.response?.data);
-      console.error('Response status:', error.response?.status);
-      console.error('Response headers:', error.response?.headers);
-      
-      // Check if we got HTML instead of JSON
-      if (error.response?.data && typeof error.response.data === 'string') {
-        if (error.response.data.includes('<!DOCTYPE')) {
-          toast.error('Server returned HTML instead of JSON. Check API endpoint.');
-        } else {
-          toast.error(error.response.data);
-        }
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to load earnings data');
+      } catch (error: any) {
+        console.error('Failed to fetch host rating stats:', error);
       }
-    } finally {
-      setIsLoading(false);
+    };
+
+    const fetchHostStats = async () => {
+      try {
+        const response = await api.get('/events/my-hosted');
+        const events = response.data.data || [];
+        const activeEvents = events.filter((event: any) => event.status === 'open').length;
+        
+        setHostStats({
+          totalEvents: events.length,
+          activeEvents,
+          totalReviews: hostReviews.length,
+          averageRating: hostReviews.length > 0 
+            ? hostReviews.reduce((sum: number, review: any) => sum + review.rating, 0) / hostReviews.length 
+            : 0,
+          ratingDistribution: null
+        });
+      } catch (error: any) {
+        console.error('Failed to fetch host stats:', error);
+      }
+    };
+
+    const fetchEarningsData = async () => {
+      if (!user?._id) return;
+      
+      try {
+        const response = await api.get(`/hosts/${user._id}/earnings`, {
+          params: {
+            period: selectedPeriod,
+            eventId: selectedEvent === 'all' ? undefined : selectedEvent
+          }
+        });
+        
+        console.log('Earnings API Response:', response);
+        
+        const data = response.data.data;
+        setEarningsData(data.summary);
+        setRecentPayments(data.payments || []);
+      } catch (error: any) {
+        console.error('Failed to fetch earnings data:', error);
+        console.error('Response data:', error.response?.data);
+        console.error('Response status:', error.response?.status);
+        console.error('Response headers:', error.response?.headers);
+        
+        // Check if we got HTML instead of JSON
+        if (error.response?.data && typeof error.response.data === 'string') {
+          if (error.response.data.includes('<!DOCTYPE')) {
+            toast.error('Server returned HTML instead of JSON. Check API endpoint.');
+          } else {
+            toast.error(error.response.data);
+          }
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to load earnings data');
+        }
+      }
+    };
+
+    if (user?._id) {
+      fetchEarningsData();
+      fetchHostReviews();
+      fetchHostStats();
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod, selectedEvent, user?._id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -242,9 +266,9 @@ export default function HostEarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Active</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               <Badge variant="outline" className="text-green-600">Pro Host</Badge>
-            </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -355,23 +379,23 @@ export default function HostEarningsPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(earningsData.totalEarnings)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(earningsData.totalEarned)}</div>
             <p className="text-xs text-muted-foreground">
-              +12.1% from last month
+              {earningsData.succeededCount} successful payments
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Last 30 Days</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(earningsData.thisMonth)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(earningsData.last30Days.amount)}</div>
             <p className="text-xs text-muted-foreground flex items-center">
               <ArrowUpRight className="w-3 h-3 mr-1 text-green-600" />
-              +12.1% from last month
+              {earningsData.last30Days.count} payments
             </p>
           </CardContent>
         </Card>
@@ -382,22 +406,22 @@ export default function HostEarningsPage() {
             <PiggyBank className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(earningsData.pendingPayments)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(earningsData.pendingAmount)}</div>
             <p className="text-xs text-muted-foreground">
-              2 transactions pending
+              {earningsData.pendingCount} transactions pending
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg per Event</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(earningsData.averagePerEvent)}</div>
+            <div className="text-2xl font-bold">{earningsData.totalPayments}</div>
             <p className="text-xs text-muted-foreground">
-              Across {earningsData.totalEvents} events
+              {earningsData.refundedCount} refunded
             </p>
           </CardContent>
         </Card>
@@ -432,37 +456,6 @@ export default function HostEarningsPage() {
         </Button>
       </div>
 
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex-1">
-                  <h4 className="font-semibold">{transaction.eventName}</h4>
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {transaction.date}
-                    </span>
-                    <span>{transaction.attendees} attendees</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold">{formatCurrency(transaction.amount)}</div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(transaction.status)}`}>
-                    {transaction.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Monthly Earnings Chart */}
       <Card>
         <CardHeader>
@@ -470,7 +463,7 @@ export default function HostEarningsPage() {
         </CardHeader>
         <CardContent>
           <div className="h-64 flex items-end justify-between gap-2">
-            {monthlyEarnings.map((month, index) => (
+            {monthlyEarnings.map((month) => (
               <div key={month.month} className="flex-1 flex flex-col items-center">
                 <div 
                   className="w-full bg-emerald-500 rounded-t-lg transition-all duration-300 hover:bg-emerald-600"

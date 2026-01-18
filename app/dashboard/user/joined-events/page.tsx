@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -82,7 +83,7 @@ export default function JoinedEventsPage() {
     
     setLeavingEventId(eventId);
     try {
-      const response = await leaveEvent(eventId);
+      const response = await leaveEvent();
       toast.success(response.message || 'Successfully left the event');
       
       // Remove the event from the local state

@@ -57,9 +57,12 @@ export const getUserProfile = async (userId: string): Promise<UserResponse> => {
   }
 };
 
-export const updateUserProfile = async (userId: string, userData: UpdateProfileData): Promise<UserResponse> => {
+export const updateUserProfile = async (userId: string, userData: UpdateProfileData | FormData): Promise<UserResponse> => {
   try {
-    const response = await api.put(`/users/${userId}`, userData);
+    const isFormData = userData instanceof FormData;
+    const response = await api.put(`/users/${userId}`, userData, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 403) {
@@ -70,6 +73,8 @@ export const updateUserProfile = async (userId: string, userData: UpdateProfileD
       throw new Error('Authentication required: Please log in again');
     } else if (error.response?.status === 400) {
       throw new Error(error.response?.data?.message || 'Invalid data provided');
+    } else if (error.response?.status === 413) {
+      throw new Error('Image file is too large. Please choose a smaller file.');
     } else {
       throw new Error(error.response?.data?.message || 'Failed to update user profile');
     }
@@ -90,3 +95,4 @@ export const getCurrentUser = async (): Promise<UserResponse> => {
     }
   }
 };
+

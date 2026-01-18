@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { getAuthToken, removeAuthToken, removeUserData } from './auth';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 10000, 
 });
 
 // Log the base URL for debugging
@@ -23,11 +24,14 @@ api.interceptors.request.use((config) => {
   
   // Log request details for debugging only in development
   if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    console.log('API Request:', {
+    console.log('🔗 API Request:', {
       url: config.url,
       method: config.method,
+      baseURL: config.baseURL || 'undefined',
+      fullURL: (config.baseURL || '') + (config.url || ''),
       hasToken: !!token,
-      baseURL: config.baseURL
+      tokenLength: token ? token.length : 0,
+      headers: config.headers
     });
   }
   
@@ -101,6 +105,10 @@ api.interceptors.response.use(
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
+    } else if (errorDetails.status && errorDetails.status === 403) {
+      console.warn('Authorization Error - User does not have permission');
+      // Don't automatically redirect for 403, let the component handle it
+      // This is important for payment authorization errors
     } else if (errorDetails.status && errorDetails.status >= 500) {
       console.warn('Server Error - Backend issue, using fallback data');
     } else if (errorDetails.status && errorDetails.status >= 400) {
@@ -173,10 +181,38 @@ export const getMyBookings = async (params?: {
 };
 
 // Payment Confirmation API
-export const confirmPayment = async (bookingId: string, paymentIntentId?: string) => {
+export const confirmPayment = async (bookingId: string, paymentIntentId?: string, paymentMethodId?: string, returnUrl?: string) => {
+  console.log('🔄 Confirming payment with backend:', {
+    bookingId,
+    paymentIntentId,
+    paymentMethodId,
+    returnUrl
+  });
+  
   const response = await api.post('/payments/confirm', {
     bookingId,
-    paymentIntentId
+    paymentIntentId,
+    paymentMethodId,
+    returnUrl
+  });
+  
+  console.log('✅ Payment confirmation response:', response.data);
+  console.log('📊 Response details:', {
+    success: response.data?.success,
+    message: response.data?.message,
+    bookingStatus: response.data?.data?.booking?.status,
+    paymentStatus: response.data?.data?.booking?.paymentStatus
+  });
+  
+  return response.data;
+};
+
+// Create Payment Intent API
+export const createPaymentIntent = async (eventId: string, quantity: number = 1) => {
+  const response = await api.post('/payments/create-intent', {
+    eventId,
+    quantity
   });
   return response.data;
 };
+

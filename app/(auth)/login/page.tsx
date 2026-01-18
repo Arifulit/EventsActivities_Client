@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -201,12 +202,7 @@ export default function LoginPage() {
                       Remember me
                     </label>
                   </div>
-                  <Link 
-                    href="/forgot-password" 
-                    className="text-sm text-green-600 hover:text-green-700 transition-colors duration-200"
-                  >
-                    Forgot password?
-                  </Link>
+                 
                 </div>
 
                 {/* Submit Button */}

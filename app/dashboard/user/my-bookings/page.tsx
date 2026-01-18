@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -76,25 +77,31 @@ export default function UserMyBookingsPage() {
     const fetchBookingsData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching my bookings...');
         const data = await getMyBookings();
         
-        const bookingsData = data.data || [];
+        console.log('Bookings API response:', data);
+        const bookingsData = Array.isArray(data.data) ? data.data : data.data?.bookings || [];
+        console.log('Processed bookings data:', bookingsData);
+        
+        // Show ALL bookings (pending, confirmed, completed) - don't filter out pending
         setBookings(bookingsData);
         
-        // Calculate stats from booking data
+        // Calculate stats from ALL booking data
         const totalBookings = bookingsData.length;
-        const totalSpent = bookingsData.reduce((sum: number, booking: Booking) => sum + booking.amount, 0);
-        const confirmedBookings = bookingsData.filter((b: Booking) => b.status === 'confirmed');
+        const totalSpent = bookingsData.filter((b: Booking) => b.paymentStatus === 'paid').reduce((sum: number, booking: Booking) => sum + booking.amount, 0);
         const eventsAttended = bookingsData.filter((b: Booking) => b.status === 'completed').length;
-        const upcomingEvents = confirmedBookings.filter((b: Booking) => new Date(b.eventId.date) > new Date()).length;
+        const upcomingEvents = bookingsData.filter((b: Booking) => 
+          b.status === 'confirmed' && b.eventId?.date && new Date(b.eventId.date) > new Date()
+        ).length;
         
-        // Calculate monthly spent (current month)
+        // Calculate monthly spent (current month) - only paid bookings
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         const monthlySpent = bookingsData
           .filter((b: Booking) => {
             const bookingDate = new Date(b.bookingDate);
-            return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
+            return b.paymentStatus === 'paid' && bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
           })
           .reduce((sum: number, booking: Booking) => sum + booking.amount, 0);
         
@@ -108,6 +115,7 @@ export default function UserMyBookingsPage() {
       } catch (err: any) {
         setError(err.message || 'Failed to fetch bookings');
         console.error('Error fetching bookings:', err);
+        console.error('Error details:', err.response?.data);
       } finally {
         setLoading(false);
       }
@@ -120,36 +128,30 @@ export default function UserMyBookingsPage() {
     try {
       setProcessingPayment(bookingId);
       
-      // For testing: use the provided Payment Intent ID if no paymentIntentId in booking
-      const testPaymentIntentId = paymentIntentId || 'pi_3SlpnMK0TTEY76871Rit4P49';
-      
-      console.log('Attempting payment completion with:', {
+      console.log('Confirming payment with:', {
         bookingId,
-        paymentIntentId: testPaymentIntentId
+        paymentIntentId
       });
       
-      // Use Payment Intent ID if available, otherwise try with just bookingId
-      const result = await confirmPayment(bookingId, testPaymentIntentId);
+      // Confirm payment with backend - this will update the booking status
+      const result = await confirmPayment(bookingId, paymentIntentId);
       
       if (result.success) {
-        // Refresh bookings to get updated status
+        // Refresh bookings to get updated status from database
         const data = await getMyBookings();
-        setBookings(data.data || []);
-        alert('Payment completed successfully!');
+        const bookingsArray = Array.isArray(data.data) ? data.data : data.data?.bookings || [];
+        
+        // Show ALL bookings (pending, confirmed, completed) - don't filter out pending
+        setBookings(bookingsArray);
+        
+        // Show success message
+        alert('✅ Payment confirmed successfully! Your booking status has been updated to confirmed.');
       } else {
         alert(result.message || 'Payment completion failed. Please try again.');
       }
     } catch (error: any) {
       console.error('Payment completion error:', error);
-      
-      // Provide specific guidance based on the error
-      if (error.message.includes('Payment incomplete') || error.message.includes('paymentMethodId')) {
-        alert('Payment requires additional information. Please complete the payment process using our secure payment form. This feature will be available soon.');
-      } else if (error.message.includes('client secret')) {
-        alert('Payment requires secure authentication. Please complete the payment on our secure payment page. This feature will be available soon.');
-      } else {
-        alert(error.message || 'Payment completion failed. Please contact support if the issue persists.');
-      }
+      alert(error.message || 'Payment confirmation failed. Please contact support if the issue persists.');
     } finally {
       setProcessingPayment(null);
     }
@@ -191,6 +193,24 @@ export default function UserMyBookingsPage() {
   }
   return (
     <div className="space-y-8">
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-red-900">Failed to load bookings</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
         <div className="flex items-center justify-between">
@@ -272,8 +292,11 @@ export default function UserMyBookingsPage() {
           <div className="space-y-4">
             {bookings.length > 0 ? (
               bookings.map((booking) => {
-                const eventDate = new Date(booking.eventId.date);
-                const isUpcoming = eventDate > new Date();
+                const eventDate = booking.eventId?.date ? new Date(booking.eventId.date) : null;
+                const isUpcoming = eventDate ? eventDate > new Date() : false;
+                const eventTitle = booking.eventId?.title || 'Event Deleted';
+                const eventLocation = booking.eventId?.location || { city: 'N/A', venue: 'N/A' };
+                const eventTime = booking.eventId?.time || 'N/A';
                 
                 return (
                   <div key={booking._id} className={`group border rounded-xl transition-all duration-300 ${!isUpcoming ? 'bg-gray-50 border-gray-200 opacity-75' : 'bg-white border-gray-200 hover:shadow-md hover:border-blue-300'}`}>
@@ -284,19 +307,19 @@ export default function UserMyBookingsPage() {
                             <Calendar className={`w-6 h-6 ${isUpcoming ? 'text-blue-600' : 'text-gray-600'}`} />
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{booking.eventId.title}</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{eventTitle}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                               <div className="flex items-center text-sm text-gray-600">
                                 <Calendar className="w-4 h-4 mr-2 text-blue-500" />
-                                {eventDate.toLocaleDateString()}
+                                {eventDate ? eventDate.toLocaleDateString() : 'N/A'}
                               </div>
                               <div className="flex items-center text-sm text-gray-600">
                                 <Clock className="w-4 h-4 mr-2 text-blue-500" />
-                                {booking.eventId.time}
+                                {eventTime}
                               </div>
                               <div className="flex items-center text-sm text-gray-600">
                                 <MapPin className="w-4 h-4 mr-2 text-blue-500" />
-                                {booking.eventId.location.city}, {booking.eventId.location.venue}
+                                {eventLocation.city}, {eventLocation.venue}
                               </div>
                               <div className="flex items-center text-sm text-gray-600">
                                 <Users className="w-4 h-4 mr-2 text-blue-500" />
@@ -310,7 +333,9 @@ export default function UserMyBookingsPage() {
                                 className="text-xs font-medium"
                               >
                                 {booking.status === 'confirmed' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                {booking.status === 'pending' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                {booking.status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
+                                {booking.status === 'cancelled' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                {booking.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
                                 {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                               </Badge>
                               <Badge 
@@ -318,6 +343,7 @@ export default function UserMyBookingsPage() {
                                 className="text-xs font-medium"
                               >
                                 {booking.paymentStatus === 'paid' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                {booking.paymentStatus === 'pending' && <Clock className="w-3 h-3 mr-1" />}
                                 Payment: {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
                               </Badge>
                               {isUpcoming && (

@@ -262,26 +262,6 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Terms */}
-              <div className="flex items-start space-x-2">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  required
-                  className="w-4 h-4 text-green-600 rounded focus:ring-green-500 border-gray-300 mt-0.5"
-                />
-                <label htmlFor="terms" className="text-xs text-gray-700 cursor-pointer">
-                  I agree to the{' '}
-                  <Link href="/terms" className="text-green-600 hover:text-green-700">
-                    Terms of Service
-                  </Link>{' '}
-                  and{' '}
-                  <Link href="/privacy" className="text-green-600 hover:text-green-700">
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
-
               {/* Submit Button */}
               <Button
                 type="submit"

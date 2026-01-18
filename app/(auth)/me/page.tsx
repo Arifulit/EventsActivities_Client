@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -13,26 +12,20 @@ import {
   MapPin, 
   Mail, 
   Calendar, 
-  Star, 
   Edit, 
   Save, 
   X, 
   Camera,
   Shield,
-  Crown,
-  CheckCircle,
-  Globe,
-  Briefcase,
-  Settings
+  Crown
 } from 'lucide-react';
 import { formatDate } from '@/app/lib/utils';
-import { updateUserProfile, UserProfile } from '@/app/lib/users';
+import { updateUserProfile } from '@/app/lib/users';
 import { toast } from 'react-hot-toast';
 import api from '@/app/lib/api';
 import { User } from '@/types/auth';
 
 export default function AuthMePage() {
-  const { user } = useAuth();
   const router = useRouter();
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -46,9 +39,6 @@ export default function AuthMePage() {
     interests: [] as string[],
   });
   const [newInterest, setNewInterest] = useState('');
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -90,8 +80,6 @@ export default function AuthMePage() {
         interests: currentUser.interests || [],
       });
     }
-    setImagePreview(null);
-    setSelectedImage(null);
   };
 
   const handleSave = async () => {
@@ -99,7 +87,7 @@ export default function AuthMePage() {
     
     try {
       setIsLoading(true);
-      const response = await updateUserProfile(currentUser._id, {
+      await updateUserProfile(currentUser._id, {
         fullName: editForm.fullName,
         bio: editForm.bio,
         location: {
@@ -123,10 +111,9 @@ export default function AuthMePage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        // Image preview can be handled here if needed
       };
       reader.readAsDataURL(file);
     }
@@ -215,7 +202,7 @@ export default function AuthMePage() {
                 <div className="relative mx-auto w-24 h-24 sm:w-32 sm:h-32">
                   <Avatar className="w-full h-full ring-4 ring-gray-200">
                     <AvatarImage src={currentUser?.profileImage} alt={currentUser?.fullName || ''} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl font-bold">
+                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl font-bold">
                       {currentUser?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>

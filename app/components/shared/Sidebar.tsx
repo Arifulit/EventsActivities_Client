@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/app/lib/utils';
@@ -22,7 +22,6 @@ import {
   Menu,
   X,
   CreditCard,
-  FileText,
   TrendingUp,
   UserCheck,
   CalendarDays,
@@ -78,12 +77,12 @@ export default function RoleBasedSidebar() {
           label: 'My Events',
           icon: <Calendar className="w-4 h-4" />,
         },
-         {
-          href: '/dashboard/user/my-bookings',
-          label: 'My Bookings',
-          icon: <CalendarDays className="w-4 h-4" />,
-          requiredPermission: 'viewOwnBookings',
-        },
+        //  {
+        //   href: '/dashboard/user/my-bookings',
+        //   label: 'My Bookings',
+        //   icon: <CalendarDays className="w-4 h-4" />,
+        //   requiredPermission: 'viewOwnBookings',
+        // },
     
       ],
     });
@@ -103,8 +102,7 @@ export default function RoleBasedSidebar() {
         title: 'Financial',
         items: [
           { href: '/dashboard/host/earnings', label: 'Earnings', icon: <DollarSign className="w-4 h-4" />, requiredPermission: 'viewOwnEarnings' },
-          { href: '/dashboard/host/payments', label: 'Payments', icon: <CreditCard className="w-4 h-4" />, requiredPermission: 'receivePayments' },
-          { href: '/dashboard/host/analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
+
         ],
       }
     );

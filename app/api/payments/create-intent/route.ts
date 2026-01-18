@@ -30,8 +30,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build backend URL safely (supports values with or without trailing /api)
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+    const backendUrl = apiBase.endsWith('/payments/create-intent')
+      ? apiBase
+      : `${apiBase}/payments/create-intent`;
+
+    console.log('🔗 create-intent proxy:', {
+      backendUrl,
+      hasToken: !!token,
+      eventId,
+      quantity,
+    });
+
     // Call backend API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/create-intent`, {
+    const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -43,10 +56,24 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {
+      console.error('⚠️ Backend returned non-JSON for create-intent:', text.substring(0, 200));
+      return NextResponse.json(
+        { success: false, message: 'Backend returned invalid response for payment intent' },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      console.error('❌ Backend create-intent failed:', {
+        status: response.status,
+        data,
+      });
+      return NextResponse.json(data || { success: false, message: 'Payment intent failed' }, { status: response.status });
     }
 
     return NextResponse.json(data);

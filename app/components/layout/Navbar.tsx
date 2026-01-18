@@ -65,7 +65,7 @@ export default function Navbar() {
       return [
         { name: 'Explore Events', href: '/events', icon: Calendar },
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'My Events', href: '/dashboard/user/my-bookings', icon: Calendar },
+        { name: 'My Events', href: '/dashboard/user/my-events', icon: Calendar },
         { name: 'Profile', href: `/profile/${user._id}`, icon: User },
       ];
     }

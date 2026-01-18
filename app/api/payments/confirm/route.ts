@@ -3,18 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { bookingId, paymentIntentId } = body;
+    const { bookingId, paymentIntentId, paymentMethodId, returnUrl } = body;
 
     if (!bookingId) {
       return NextResponse.json(
         { success: false, message: 'Booking ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!paymentIntentId) {
-      return NextResponse.json(
-        { success: false, message: 'Payment Intent ID is required' },
         { status: 400 }
       );
     }
@@ -30,6 +23,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build request payload
+    const payload: any = { bookingId };
+    if (paymentIntentId) payload.paymentIntentId = paymentIntentId;
+    if (paymentMethodId) payload.paymentMethodId = paymentMethodId;
+    if (returnUrl) payload.returnUrl = returnUrl;
+
     // Call backend API
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/confirm`, {
       method: 'POST',
@@ -37,10 +36,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        bookingId,
-        paymentIntentId
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();

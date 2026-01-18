@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
-import { ArrowLeft, Star, Award, MessageSquare, Loader2, Calendar, MapPin } from 'lucide-react';
+import { ArrowLeft, Star, Award, MessageSquare, Loader2, Calendar } from 'lucide-react';
 import { getHostReviews, getHostReviewStats, HostReview, HostReviewStats } from '@/app/lib/reviews';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -17,52 +17,45 @@ export default function HostReviewsPage() {
 
   const [reviews, setReviews] = useState<HostReview[]>([]);
   const [stats, setStats] = useState<HostReviewStats | null>(null);
-  const [hostName, setHostName] = useState<string>('Host');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  useEffect(() => {
-    if (hostId) {
-      fetchReviews();
-      fetchStats();
-    }
-  }, [hostId]);
-
-  const fetchReviews = async (page: number = 1) => {
+  const fetchReviews = useCallback(async (page: number = 1) => {
     try {
       setIsLoading(page === 1);
       const response = await getHostReviews(hostId, page);
       
       if (page === 1) {
         setReviews(response.data);
-        // Extract host name from first review if available
-        if (response.data.length > 0) {
-          const firstReview = response.data[0];
-          // You might want to fetch host details separately for the name
-          setHostName('Event Host'); // Placeholder - you can fetch actual host name
-        }
       } else {
         setReviews(prev => [...prev, ...response.data]);
       }
       
       setHasMore(response.pagination.hasNextPage);
       setCurrentPage(page);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch host reviews:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hostId]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const reviewStats = await getHostReviewStats(hostId);
       setStats(reviewStats);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch host review stats:', error);
     }
-  };
+  }, [hostId]);
+
+  useEffect(() => {
+    if (hostId) {
+      fetchReviews(1);
+      fetchStats();
+    }
+  }, [hostId, fetchReviews, fetchStats]);
 
   const renderStars = (rating: number, size: 'sm' | 'md' | 'lg' = 'sm') => {
     const starSizes = {
@@ -125,13 +118,13 @@ export default function HostReviewsPage() {
           </div>
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16">
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-bold">
+              <AvatarFallback className="bg-linear-to-br from-blue-500 to-purple-600 text-white text-lg font-bold">
                 H
               </AvatarFallback>
             </Avatar>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {hostName} - Reviews
+                Host - Reviews
               </h1>
               {stats && (
                 <div className="flex items-center space-x-4">
@@ -164,7 +157,7 @@ export default function HostReviewsPage() {
                     <Card key={review._id}>
                       <CardContent className="p-6">
                         <div className="space-y-4">
-                          <div className="flex items-center space-x-4">
+                          <Link href={`/profile/${review.userId._id}`} className="flex items-center space-x-4 hover:opacity-80 transition-opacity cursor-pointer">
                             <Avatar className="h-10 w-10">
                               {review.userId.profileImage ? (
                                 <AvatarImage src={review.userId.profileImage} alt={review.userId.fullName} />
@@ -180,7 +173,7 @@ export default function HostReviewsPage() {
                                 {formatDate(review.createdAt)}
                               </p>
                             </div>
-                          </div>
+                          </Link>
 
                           {renderStars(review.rating)}
 
@@ -233,7 +226,7 @@ export default function HostReviewsPage() {
                   <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Reviews Yet</h3>
                   <p className="text-gray-600">
-                    This host hasn't received any reviews yet.
+                    This host hasn&rsquo;t received any reviews yet.
                   </p>
                 </CardContent>
               </Card>

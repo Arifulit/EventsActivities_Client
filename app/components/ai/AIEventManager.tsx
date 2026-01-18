@@ -69,7 +69,14 @@ export default function AIEventManager({
   const generateSuggestions = async () => {
     try {
       const userResponse = await api.get('/auth/me');
-      const suggestions = await aiEventService.generateEventSuggestions(userResponse.data.user);
+      const user = userResponse?.data?.user;
+      
+      if (!user) {
+        console.warn('AI Manager: No user data available for suggestions');
+        return;
+      }
+      
+      const suggestions = await aiEventService.generateEventSuggestions(user);
       setSuggestions(suggestions);
     } catch (error) {
       console.error('Failed to generate suggestions:', error);

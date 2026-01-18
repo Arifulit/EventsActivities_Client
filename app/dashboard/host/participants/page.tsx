@@ -5,67 +5,70 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/ca
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { 
   Users, 
   Search, 
   Download, 
   Mail, 
-  Phone, 
-  Calendar,
   MapPin,
   CheckCircle,
-  XCircle,
-  Clock,
-  Filter,
   UserCheck,
-  AlertCircle,
-  FileText,
-  Send,
+  Shield,
+  Award,
+  Activity,
+  Star,
+  Calendar,
+  TrendingUp,
   Eye,
-  DollarSign,
-  Loader2
+  Loader2,
+  Grid,
+  List
 } from 'lucide-react';
 import api from '@/app/lib/api';
 import toast from 'react-hot-toast';
 
+interface User {
+  _id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  location: {
+    city: string;
+  };
+  profileImage: string;
+  bio: string;
+  interests: string[];
+  isVerified: boolean;
+  isActive: boolean;
+  userStatus: string;
+  averageRating: number;
+  totalReviews: number;
+  hostedEvents: string[];
+  joinedEvents: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function HostParticipantsPage() {
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [events, setEvents] = useState<any[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState('all');
   const [pagination, setPagination] = useState({
     currentPage: 1,
-    totalPages: 0,
+    totalPages: 1,
     totalItems: 0,
     itemsPerPage: 20,
     hasNextPage: false,
     hasPrevPage: false
   });
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    fetchParticipants();
-    fetchEvents();
-  }, [selectedEventId, pagination.currentPage]);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const fetchParticipants = async () => {
     try {
       setIsLoading(true);
-      let url = '/events/participants';
-      
-      if (selectedEventId !== 'all') {
-        url = `/events/${selectedEventId}/participants`;
-      }
-      
-      console.log('Fetching participants from:', url);
-      console.log('Request params:', {
-        page: pagination.currentPage,
-        limit: pagination.itemsPerPage,
-        search: searchTerm
-      });
-      
-      const response = await api.get(url, {
+      const response = await api.get('/events/participants', {
         params: {
           page: pagination.currentPage,
           limit: pagination.itemsPerPage,
@@ -73,339 +76,383 @@ export default function HostParticipantsPage() {
         }
       });
       
-      console.log('API Response:', response);
-      
       if (response.data.success) {
         setParticipants(response.data.data || []);
         setPagination(response.data.pagination || pagination);
       }
-    } catch (error: any) {
-      console.error('Failed to fetch participants - Full error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Error response:', error.response);
-      
-      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR') {
-        toast.error('Cannot connect to server. Please ensure the backend is running on port 5000.');
-      } else if (error.response?.status === 401) {
-        toast.error('Authentication failed. Please login again.');
-      } else if (error.response?.status === 404) {
-        toast.error('API endpoint not found. Check if the backend routes are properly configured.');
-      } else {
-        toast.error(`Failed to load participants: ${error.message || 'Unknown error'}`);
-      }
+    } catch (error) {
+      console.error('Failed to fetch participants:', error);
+      toast.error('Failed to load participants');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchEvents = async () => {
-    try {
-      console.log('Fetching events from:', '/events/my-hosted');
-      const response = await api.get('/events/my-hosted');
-      console.log('Events API Response:', response);
-      
-      if (response.data.success) {
-        setEvents(response.data.data || []);
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch events - Full error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Error response:', error.response);
-      
-      if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR') {
-        toast.error('Cannot connect to server. Please ensure the backend is running on port 5000.');
-      } else if (error.response?.status === 401) {
-        toast.error('Authentication failed. Please login again.');
-      } else if (error.response?.status === 404) {
-        toast.error('Events API endpoint not found. Check if the backend routes are properly configured.');
-      } else {
-        toast.error(`Failed to load events: ${error.message || 'Unknown error'}`);
-      }
-    }
-  };
+  useEffect(() => {
+    fetchParticipants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.currentPage]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return <Badge className="bg-green-100 text-green-800">Confirmed</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-100 text-red-800">Cancelled</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'pending':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
-      case 'cancelled':
-        return <XCircle className="w-4 h-4 text-red-600" />;
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-200"><Shield className="w-3 h-3 mr-1" />Admin</Badge>;
+      case 'host':
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200"><Award className="w-3 h-3 mr-1" />Host</Badge>;
+      case 'user':
+        return <Badge className="bg-green-100 text-green-800 border-green-200"><Users className="w-3 h-3 mr-1" />User</Badge>;
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const getPaymentBadge = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return <Badge className="bg-blue-100 text-blue-800">Paid</Badge>;
-      case 'pending':
-        return <Badge className="bg-orange-100 text-orange-800">Pending</Badge>;
-      case 'refunded':
-        return <Badge className="bg-gray-100 text-gray-800">Refunded</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{role}</Badge>;
     }
   };
 
   const filteredParticipants = participants.filter(participant => {
     const matchesSearch = !searchTerm || 
-      (participant.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       participant.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       participant.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase()));
+      participant.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      participant.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesEvent = selectedEventId === 'all' || participant.eventId === selectedEventId;
+    const matchesRole = roleFilter === 'all' || participant.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'verified' && participant.isVerified) ||
+      (statusFilter === 'active' && participant.isActive);
     
-    return matchesSearch && matchesEvent;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const confirmedParticipants = participants.filter(p => p.status === 'confirmed');
-  const pendingParticipants = participants.filter(p => p.status === 'pending');
-  const cancelledParticipants = participants.filter(p => p.status === 'cancelled');
+  const stats = {
+    total: participants.length,
+    hosts: participants.filter(p => p.role === 'host').length,
+    users: participants.filter(p => p.role === 'user').length,
+    verified: participants.filter(p => p.isVerified).length
+  };
 
   const exportParticipants = () => {
-    console.log('Exporting participants data...');
-    // TODO: Implement export functionality
-    toast.success('Export feature coming soon!');
+    const csvData = filteredParticipants.map(p => ({
+      Name: p.fullName,
+      Email: p.email,
+      Role: p.role,
+      Location: p.location.city,
+      'Events Hosted': p.hostedEvents.length,
+      'Events Joined': p.joinedEvents.length,
+      'Rating': p.averageRating,
+      'Verified': p.isVerified ? 'Yes' : 'No',
+      'Joined': new Date(p.createdAt).toLocaleDateString()
+    }));
+    
+    const csv = [
+      Object.keys(csvData[0] || {}).join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `participants-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    toast.success('Participants exported successfully!');
   };
 
-  const sendNotification = async (participantId: string, message: string) => {
-    try {
-      // TODO: Implement notification API call
-      console.log('Sending notification to participant:', participantId, message);
-      toast.success('Notification sent successfully!');
-    } catch (error) {
-      toast.error('Failed to send notification');
-    }
-  };
-
-  const handlePageChange = (page: number) => {
-    setPagination(prev => ({ ...prev, currentPage: page }));
-  };
-
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    // Reset to first page when searching
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-  };
-
-  if (isLoading && participants.length === 0) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading participants...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Event Participants</h2>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={exportParticipants}>
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-full mx-auto space-y-6\">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Platform Users</h1>
+            <p className="text-gray-600 mt-1">Manage and view all platform participants</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={exportParticipants}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button onClick={() => fetchParticipants()}>
+              <Activity className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Participants</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{participants.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all events
-            </p>
-          </CardContent>
-        </Card>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/10 rounded-full -mr-16 -mt-16"></div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+              <CardTitle className="text-sm font-semibold text-gray-600">Total Users</CardTitle>
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Users className="h-5 w-5 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black text-gray-900">{stats.total}</div>
+              <p className="text-xs text-gray-500 mt-2">All platform members</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{confirmedParticipants.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Paid attendees
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/10 rounded-full -mr-16 -mt-16"></div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+              <CardTitle className="text-sm font-semibold text-gray-600">Event Hosts</CardTitle>
+              <div className="p-3 bg-purple-100 rounded-xl">
+                <Award className="h-5 w-5 text-purple-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black text-gray-900">{stats.hosts}</div>
+              <p className="text-xs text-gray-500 mt-2">Active event organizers</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingParticipants.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting confirmation
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-400/10 rounded-full -mr-16 -mt-16"></div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+              <CardTitle className="text-sm font-semibold text-gray-600">Regular Users</CardTitle>
+              <div className="p-3 bg-green-100 rounded-xl">
+                <UserCheck className="h-5 w-5 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black text-gray-900">{stats.users}</div>
+              <p className="text-xs text-gray-500 mt-2">Event participants</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${participants
-                .filter(p => p.paymentStatus === 'paid')
-                .reduce((sum, p) => sum + p.price, 0)
-                .toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              From confirmed bookings
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/10 rounded-full -mr-16 -mt-16"></div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+              <CardTitle className="text-sm font-semibold text-gray-600">Verified</CardTitle>
+              <div className="p-3 bg-emerald-100 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-emerald-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black text-gray-900">{stats.verified}</div>
+              <p className="text-xs text-gray-500 mt-2">Verified accounts</p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Filters and Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search participants by name, email, or ticket number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+        {/* Search and Filters */}
+        <Card className="border-0 shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by name, email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <select
+                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[150px]"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="host">Hosts</option>
+                  <option value="user">Users</option>
+                  <option value="admin">Admins</option>
+                </select>
+                <select
+                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[150px]"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="verified">Verified</option>
+                  <option value="active">Active</option>
+                </select>
+                <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
+                  {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+                </Button>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <select
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="all">All Events</option>
-                {events.map(event => (
-                  <option key={event._id} value={event._id}>{event.title}</option>
-                ))}
-              </select>
-            </div>
+          </CardContent>
+        </Card>
+
+        {/* Users Grid/List */}
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredParticipants.map((user) => (
+              <Card key={user._id} className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 bg-linear-to-br from-emerald-400 to-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                        {user.fullName?.charAt(0) || 'U'}
+                      </div>
+                      {user.isVerified && (
+                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1">
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 truncate">{user.fullName}</h3>
+                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        {getRoleBadge(user.role)}
+                        {user.isActive && <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        Location
+                      </span>
+                      <span className="font-semibold text-gray-900">{user.location?.city || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <Star className="w-4 h-4" />
+                        Rating
+                      </span>
+                      <span className="font-semibold text-gray-900">{user.averageRating?.toFixed(1) || '0.0'} ({user.totalReviews || 0})</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        Hosted
+                      </span>
+                      <span className="font-semibold text-gray-900">{user.hostedEvents?.length || 0} events</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" />
+                        Joined
+                      </span>
+                      <span className="font-semibold text-gray-900">{user.joinedEvents?.length || 0} events</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1">
+                      <Mail className="w-4 h-4 mr-1" />
+                      Contact
+                    </Button>
+                    <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Participants List */}
-      <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All ({participants.length})</TabsTrigger>
-          <TabsTrigger value="confirmed">Confirmed ({confirmedParticipants.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({pendingParticipants.length})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({cancelledParticipants.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          <div className="bg-white rounded-lg border overflow-hidden">
+        ) : (
+          <Card className="border-0 shadow-lg">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Participant
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Event
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Registration
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Location
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Events
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Rating
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Payment
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredParticipants.map((participant) => (
-                    <tr key={participant._id || participant.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                            <UserCheck className="w-4 h-4 text-gray-600" />
+                <tbody className="divide-y divide-gray-100">
+                  {filteredParticipants.map((user) => (
+                    <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-10 h-10 bg-linear-to-br from-emerald-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                              {user.fullName?.charAt(0) || 'U'}
+                            </div>
+                            {user.isVerified && (
+                              <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5">
+                                <CheckCircle className="w-3 h-3 text-white" />
+                              </div>
+                            )}
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {participant.user?.name || 'Unknown'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {participant.user?.email || 'No email'}
-                            </div>
+                            <div className="text-sm font-semibold text-gray-900">{user.fullName}</div>
+                            <div className="text-xs text-gray-500">{user.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4">
+                        {getRoleBadge(user.role)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{user.location?.city || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
-                          {participant.event?.title || 'Unknown Event'}
+                          <div>Hosted: {user.hostedEvents?.length || 0}</div>
+                          <div className="text-xs text-gray-500">Joined: {user.joinedEvents?.length || 0}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(participant.status)}
-                          {getStatusBadge(participant.status)}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                          <span className="text-sm font-semibold text-gray-900">
+                            {user.averageRating?.toFixed(1) || '0.0'}
+                          </span>
+                          <span className="text-xs text-gray-500">({user.totalReviews || 0})</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getPaymentBadge(participant.paymentStatus)}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          {user.isVerified && (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 w-fit">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Verified
+                            </Badge>
+                          )}
+                          {user.isActive && (
+                            <Badge className="bg-green-50 text-green-700 border-green-200 w-fit">
+                              Active
+                            </Badge>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
                           <Button size="sm" variant="outline">
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
+                            <Mail className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => sendNotification(participant._id || participant.id, 'Hello!')}
-                          >
-                            <Mail className="w-4 h-4 mr-1" />
-                            Contact
+                          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                            <Eye className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
@@ -414,243 +461,76 @@ export default function HostParticipantsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </TabsContent>
+          </Card>
+        )}
 
-        <TabsContent value="confirmed" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {confirmedParticipants.map((participant) => (
-              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <UserCheck className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {participant.user?.name || 'Unknown'}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {participant.user?.email || 'No email'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">
-                        ${participant.amount || participant.price || 0}
-                      </p>
-                      {getPaymentBadge(participant.paymentStatus)}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {participant.event?.title || 'Unknown Event'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
-                      </span>
-                    </div>
-                    {participant.specialRequests && (
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="w-4 h-4 text-orange-400" />
-                        <span className="text-orange-600 text-sm">{participant.specialRequests}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="outline">
-                        <Mail className="w-4 h-4 mr-1" />
-                        Email
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Phone className="w-4 h-4 mr-1" />
-                        Call
-                      </Button>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => sendNotification(participant._id || participant.id, 'Hello!')}
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+              {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+              {pagination.totalItems} users
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                disabled={!pagination.hasPrevPage}
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+              >
+                Previous
+              </Button>
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  const pageNum = i + 1;
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === pagination.currentPage ? "default" : "outline"}
+                      className={pageNum === pagination.currentPage ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                      onClick={() => setPagination(prev => ({ ...prev, currentPage: pageNum }))}
                     >
-                      <Send className="w-4 h-4 mr-1" />
-                      Notify
+                      {pageNum}
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                disabled={!pagination.hasNextPage}
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+              >
+                Next
+              </Button>
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="pending" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pendingParticipants.map((participant) => (
-              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200 border-l-4 border-yellow-400">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-yellow-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {participant.user?.name || 'Unknown'}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {participant.user?.email || 'No email'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-yellow-600">
-                        ${participant.amount || participant.price || 0}
-                      </p>
-                      {getPaymentBadge(participant.paymentStatus)}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {participant.event?.title || 'Unknown Event'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex space-x-2">
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Confirm
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                    <Button size="sm" variant="outline">
-                      <Mail className="w-4 h-4 mr-1" />
-                      Contact
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="cancelled" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {cancelledParticipants.map((participant) => (
-              <Card key={participant._id || participant.id} className="hover:shadow-md transition-all duration-200 opacity-75">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {participant.user?.name || 'Unknown'}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {participant.user?.email || 'No email'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-400">
-                        ${participant.amount || participant.price || 0}
-                      </p>
-                      {getPaymentBadge(participant.paymentStatus)}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {participant.event?.title || 'Unknown Event'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        {new Date(participant.createdAt || participant.registrationDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">
-                        Ticket: {participant.ticketNumber || `TKT-${participant._id?.slice(-6)}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <AlertCircle className="w-4 h-4 text-red-400" />
-                      <span className="text-red-600 text-sm">
-                        {participant.specialRequests || 'Cancelled'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="text-sm text-gray-500">
-                      Refund processed
-                    </div>
-                    <Button size="sm" variant="outline">
-                      <Mail className="w-4 h-4 mr-1" />
-                      Contact
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {filteredParticipants.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No participants found</h3>
-            <p className="text-gray-600 mb-6">
-              No participants match your current filters.
-            </p>
-            <Button variant="outline" onClick={() => {setSearchTerm(''); setSelectedEventId('all');}}>
-              Clear Filters
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+        {/* Empty State */}
+        {filteredParticipants.length === 0 && (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No users found</h3>
+              <p className="text-gray-600 mb-6">
+                No users match your current filters. Try adjusting your search criteria.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setRoleFilter('all');
+                  setStatusFilter('all');
+                }}
+              >
+                Clear Filters
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

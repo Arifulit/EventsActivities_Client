@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -35,15 +35,6 @@ export default function PaymentSuccessPage() {
     setOrderId(`ORD-${Date.now()}`);
   }, []);
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    fetchEventDetails();
-  }, [eventId, user, router]);
-
   const fetchEventDetails = async () => {
     try {
       // Fetch event details from API
@@ -63,6 +54,15 @@ export default function PaymentSuccessPage() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    fetchEventDetails();
+  }, [eventId, user, router, fetchEventDetails]);
 
   const handleShareEvent = () => {
     if (!isClient) return;
@@ -140,7 +140,7 @@ export default function PaymentSuccessPage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
           <p className="text-gray-600 text-lg">
-            You're all set! Your spot has been reserved for {event.name}
+            You&apos;re all set! Your spot has been reserved for {event.name}
           </p>
         </div>
 
@@ -234,7 +234,7 @@ export default function PaymentSuccessPage() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-blue-600 font-semibold text-sm">1</span>
                     </div>
                     <div>
@@ -246,7 +246,7 @@ export default function PaymentSuccessPage() {
                   </div>
 
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-blue-600 font-semibold text-sm">2</span>
                     </div>
                     <div>
@@ -258,7 +258,7 @@ export default function PaymentSuccessPage() {
                   </div>
 
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-blue-600 font-semibold text-sm">3</span>
                     </div>
                     <div>
@@ -314,7 +314,7 @@ export default function PaymentSuccessPage() {
             {/* What's Next */}
             <Card>
               <CardHeader>
-                <CardTitle>What's Next?</CardTitle>
+                <CardTitle>What&apos;s Next?</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

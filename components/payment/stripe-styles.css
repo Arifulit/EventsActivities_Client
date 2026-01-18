@@ -1,0 +1,53 @@
+/* Custom styles for Stripe Elements */
+.stripe-card-container {
+  position: relative;
+  z-index: 1;
+}
+
+.stripe-card-container iframe {
+  border: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  height: auto !important;
+}
+
+.stripe-card-container iframe:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.stripe-card-container .__PrivateStripeElement {
+  width: 100% !important;
+}
+
+.stripe-card-container .__PrivateStripeElement iframe {
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Ensure card input is clickable */
+.stripe-card-container {
+  pointer-events: auto !important;
+}
+
+.stripe-card-container * {
+  pointer-events: auto !important;
+}
+
+/* Fix for mobile devices */
+@media (max-width: 640px) {
+  .stripe-card-container iframe {
+    min-height: 40px !important;
+  }
+}
+
+/* Loading state styles */
+.stripe-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.stripe-ready {
+  opacity: 1;
+  pointer-events: auto;
+}

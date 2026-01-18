@@ -2,20 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/app/components/ui/card';
+import Image from 'next/image';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Badge } from '@/app/components/ui/badge';
-import { Calendar, MapPin, Users, DollarSign, Clock, Upload, AlertCircle, Plus, X, Brain, Sparkles } from 'lucide-react';
+import { Upload, Brain, Sparkles, MapPin, DollarSign, Users } from 'lucide-react';
 import api from '@/app/lib/api';
 import toast from 'react-hot-toast';
 
 export default function CreateEventPage() {
-  const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
@@ -39,7 +38,8 @@ export default function CreateEventPage() {
     requirements: [] as string[],
     newTag: '',
     newRequirement: '',
-    image: ''
+    image: '',
+    imageFile: null as File | null
   });
 
   // Load AI suggestion if available
@@ -100,6 +100,148 @@ export default function CreateEventPage() {
         ...prev,
         [name]: ''
       }));
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    try {
+      console.log('=== Image Upload Debug ===');
+      console.log('File name:', file.name);
+      console.log('File size:', file.size);
+      console.log('File type:', file.type);
+      console.log('File:', file);
+      
+      // Validate file type
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(file.type)) {
+        toast.error('Invalid image type. Please upload JPG, PNG, GIF, or WebP');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be less than 5MB');
+        return;
+      }
+
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      console.log('📤 Uploading image to /upload/event-image');
+      console.log('  - File name:', file.name);
+      console.log('  - File size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+      
+      // Use fetch directly for FormData to avoid axios issues with multipart
+      // Get the auth token for the request
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      // Setup abort controller for timeout
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
+      
+      const fetchResponse = await fetch('/api/upload/event-image', {
+        method: 'POST',
+        body: formDataUpload,
+        signal: abortController.signal,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          // Don't set Content-Type header - browser will set it with boundary for multipart
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('📥 Upload response received:', {
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText,
+        contentType: fetchResponse.headers.get('content-type')
+      });
+
+      const response = await fetchResponse.json();
+      console.log('=== Upload Response ===');
+      console.log('Status:', fetchResponse.status);
+      console.log('Response data:', response);
+
+      if (fetchResponse.status === 200 || fetchResponse.status === 201) {
+        // Backend returns: { success, message, data: { imageUrl }, timestamp }
+        // Try multiple possible response formats for compatibility
+        const imageUrl = 
+          response?.data?.imageUrl ||    // Backend wrapped format
+          response?.imageUrl ||           // Direct imageUrl
+          response?.url ||                // Alternative url field
+          response?.data?.url;            // Alternative wrapped format
+        
+        if (!imageUrl) {
+          console.warn('❌ No URL in response:', response);
+          toast.error('Image uploaded but no URL returned from server');
+          console.log('Expected one of: data.imageUrl, imageUrl, url, data.url');
+          return;
+        }
+
+        console.log('✅ Image URL received:', imageUrl);
+        
+        // Show warning if using placeholder
+        if (response?.warning) {
+          console.warn('⚠️ Cloudinary warning:', response.warning);
+          toast.error('⚠️ Using placeholder image - configure Cloudinary for real uploads', { duration: 5000 });
+        }
+        
+        // Validate URL format before saving
+        try {
+          new URL(imageUrl);
+          console.log('✅ Image URL is valid');
+        } catch {
+          console.error('Invalid URL format:', imageUrl);
+          toast.error('Invalid image URL format returned from server');
+          return;
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          image: imageUrl,
+          imageFile: file
+        }));
+        
+        // Show appropriate success message
+        if (response?.warning) {
+          toast.success('Image preview loaded (placeholder) - Configure Cloudinary for real uploads');
+        } else {
+          toast.success('Image uploaded successfully!');
+        }
+      } else {
+        console.error('❌ Unexpected response status:', fetchResponse.status);
+        toast.error(`Upload failed with status ${fetchResponse.status}: ${response?.message || 'Unknown error'}`);
+      }
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; statusText?: string; headers?: unknown; data?: { message?: string; error?: string; warning?: string } }; request?: unknown; message?: string; code?: string };
+      console.error('❌ === Image Upload Error ===');
+      console.error('Full error object:', error);
+      console.error('Error message:', err?.message || 'Unknown error');
+      console.error('Error code:', err?.code || 'N/A');
+      
+      if (err?.response) {
+        console.error('Response Status:', err.response.status);
+        console.error('Status Text:', err.response.statusText);
+        console.error('Response Data:', err.response.data);
+      } else if (err?.request) {
+        console.error('❌ No response received (request was made but no response)');
+        console.error('This usually means: API route not found or network error');
+      } else {
+        console.error('Error setting up request:', err?.message);
+      }
+      
+      let errorMessage = 'Failed to upload image';
+      if (err?.message?.includes('Unexpected field')) {
+        errorMessage = 'Upload field error - check file field name';
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -170,32 +312,75 @@ export default function CreateEventPage() {
         },
         tags: formData.tags,
         requirements: formData.requirements,
-        image: formData.image,
-        images: [],
-        status: 'open', // Required field, default to open
-        isPublic: true,
-        currentParticipants: 0,
-        participants: [],
-        waitingList: []
+        ...(formData.image && { image: formData.image })
       };
 
+      console.log('📝 === Event Submission Debug ===');
+      console.log('Event data being sent:', JSON.stringify(eventData, null, 2));
+      console.log('Image field:', eventData.image ? '✅ Present' : '⚠️ Missing');
+      if (eventData.image) {
+        try {
+          new URL(eventData.image);
+          console.log('✅ Image is valid URL:', eventData.image);
+        } catch {
+          console.warn('⚠️ Image URL might be invalid:', eventData.image);
+        }
+      }
+      
       const response = await api.post('/events', eventData);
       
+      console.log('📤 === Event Creation Response ===');
+      console.log('Response status:', response.status);
+      console.log('Response data:', response.data);
+      console.log('Created event ID:', response.data.data?._id);
+      
       toast.success('Event created successfully!');
-      router.push('/dashboard/host/events');
       
-    } catch (error: any) {
-      console.error('Failed to create event:', error);
+      // Refresh router cache
+      router.refresh();
       
-      if (error.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat() as string[];
+      // Wait a bit for backend to fully save and router to refresh
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Redirect to my-events page
+      router.push('/dashboard/host/my-events');
+      
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; statusText?: string; data?: { message?: string; error?: string; errors?: Record<string, string[]> }; headers?: unknown }; message?: string };
+      console.error('❌ === Event Creation Error ===');
+      console.error('Error type:', err?.response?.status ? 'Backend error' : 'Network/Client error');
+      console.error('Full error:', error);
+      console.error('Error message:', err?.message);
+      console.error('Error code:', (error as Error & { code?: string })?.code);
+      
+      if (err?.response) {
+        console.error('Response status:', err.response.status);
+        console.error('Response statusText:', err.response.statusText);
+        console.error('Response data:', JSON.stringify(err.response.data, null, 2));
+      }
+      
+      if (err?.response?.status === 500) {
+        console.error('🔴 Server error (500) - Backend issue or missing API endpoint');
+        toast.error(`Server error: ${err?.response?.data?.message || 'Check if backend is running'}`);
+      } else if (err?.response?.status === 401) {
+        console.error('🔐 Unauthorized - Token missing or expired');
+        toast.error('Authorization error - Please log in again');
+      } else if (err?.response?.status === 400) {
+        console.error('⚠️ Bad request - Invalid event data');
+        const errorMsg = err?.response?.data?.message || 'Invalid event data provided';
+        toast.error(errorMsg);
+      } else if (err?.response?.data?.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat() as string[];
+        console.error('Validation errors:', errorMessages);
         setErrors(errorMessages.reduce((acc: { [key: string]: string }, msg: string, index: number) => {
           acc[`server_${index}`] = msg;
           return acc;
         }, {}));
         toast.error('Please fix the validation errors');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to create event. Please try again.');
+        const errorMsg = err?.response?.data?.message || err?.message || 'Failed to create event. Please try again.';
+        console.error('Error message:', errorMsg);
+        toast.error(errorMsg);
       }
     } finally {
       setIsLoading(false);
@@ -226,9 +411,10 @@ export default function CreateEventPage() {
       }));
       
       toast.success('AI content generated successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
       console.error('Failed to generate AI content:', error);
-      toast.error(error.response?.data?.message || 'Failed to generate AI content');
+      toast.error(err.response?.data?.message || 'Failed to generate AI content');
     } finally {
       setIsAILoading(false);
     }
@@ -254,9 +440,10 @@ export default function CreateEventPage() {
       }));
       
       toast.success(`AI suggests $${suggestedPrice} based on market analysis`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
       console.error('Failed to get AI pricing:', error);
-      toast.error(error.response?.data?.message || 'Failed to get AI pricing recommendation');
+      toast.error(err.response?.data?.message || 'Failed to get AI pricing recommendation');
     } finally {
       setIsAILoading(false);
     }
@@ -273,20 +460,8 @@ export default function CreateEventPage() {
               AI Enhanced
             </Badge>
           )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button 
-            type="button"
-            variant="outline" 
-            onClick={generateAIContent}
-            disabled={isAILoading}
-            className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
-          >
-            <Brain className="w-4 h-4 mr-2" />
-            {isAILoading ? 'Generating...' : 'AI Generate'}
-          </Button>
-          <Button variant="outline">Cancel</Button>
-        </div>
+      </div>
+     
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -324,17 +499,18 @@ export default function CreateEventPage() {
                 <div>
                   <Label htmlFor="category">Category</Label>
                   <Select value={formData.category} onValueChange={(value) => handleSelectChange('category', value)}>
-                    <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                    <SelectTrigger className={errors.category ? 'border-red-500 bg-white' : 'bg-white'}>
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="technology">Technology</SelectItem>
+                      {/* <SelectItem value="conference">Conference</SelectItem> */}
                       <SelectItem value="music">Music & Concerts</SelectItem>
                       <SelectItem value="gaming">Gaming</SelectItem>
                       <SelectItem value="sports">Sports & Fitness</SelectItem>
                       <SelectItem value="education">Education</SelectItem>
                       <SelectItem value="food">Food & Drink</SelectItem>
-                      <SelectItem value="photography">Photography</SelectItem>
+                      {/* <SelectItem value="photography">Photography</SelectItem> */}
                       <SelectItem value="travel">Travel</SelectItem>
                     </SelectContent>
                   </Select>
@@ -433,26 +609,16 @@ export default function CreateEventPage() {
                         id="price"
                         name="price"
                         type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
+                        min="1"
+                        step="1"
+                        placeholder="1"
                         value={formData.price}
                         onChange={handleChange}
                         className={`pl-10 ${errors.price ? 'border-red-500' : ''}`}
                         required
                       />
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={getAIPricing}
-                      disabled={isAILoading}
-                      className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 whitespace-nowrap"
-                    >
-                      <Brain className="w-3 h-3 mr-1" />
-                      AI Price
-                    </Button>
+                    
                   </div>
                   {errors.price && (
                     <p className="text-red-500 text-sm mt-1">{errors.price}</p>
@@ -488,31 +654,74 @@ export default function CreateEventPage() {
                 <CardTitle>Event Image</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                  <div className="space-y-2">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                      <Upload className="w-6 h-6 text-gray-400" />
+                {formData.image ? (
+                  <div className="space-y-3">
+                    <div className="relative w-full h-48 rounded-lg border border-gray-200 overflow-hidden bg-gray-100">
+                      <Image 
+                        src={formData.image} 
+                        alt="Event preview"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        priority={true}
+                        onError={(e) => {
+                          console.error('Image preview error:', e);
+                        }}
+                      />
                     </div>
-                    <p className="text-sm text-gray-600">
-                      Click to upload event image
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      PNG, JPG up to 10MB
-                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          document.getElementById('image-input')?.click();
+                        }}
+                        className="flex-1"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Change Image
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData(prev => ({ ...prev, image: '', imageFile: null }))}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        console.log('File uploaded:', file);
-                        // Handle file upload here
-                      }
-                    }}
-                  />
-                </div>
+                ) : (
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('image-input')?.click()}
+                  >
+                    <div className="space-y-2">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                        <Upload className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Click to upload event image
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        PNG, JPG up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <input
+                  id="image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageUpload(file);
+                    }
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -520,12 +729,12 @@ export default function CreateEventPage() {
               <CardContent className="pt-6">
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white" 
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <div className="w-4 h-4 bg-green-500 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       Creating Event...
                     </>
                   ) : (

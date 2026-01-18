@@ -115,12 +115,12 @@ export default function UserDetailsPage() {
           setUser({ ...user, isVerified: true });
           break;
         case 'ban':
-          await api.post(`/admin/users/${userId}/ban`);
+          await api.patch(`/admin/users/${userId}/ban`);
           toast.success('User banned successfully');
           setUser({ ...user, isActive: false });
           break;
         case 'unban':
-          await api.post(`/admin/users/${userId}/unban`);
+          await api.patch(`/admin/users/${userId}/unban`);
           toast.success('User unbanned successfully');
           setUser({ ...user, isActive: true });
           break;

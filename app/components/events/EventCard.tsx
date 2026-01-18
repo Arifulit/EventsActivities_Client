@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Event } from '@/app/lib/events';
 import { useAuth } from '@/app/context/AuthContext';
 import JoinEventButton from './JoinEventButton';
+import EventImage from './EventImage';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -40,11 +41,27 @@ interface EventCardProps {
 export default function EventCard({ event, onUpdate, className = '' }: EventCardProps) {
   const { user } = useAuth();
   const [currentEvent, setCurrentEvent] = useState(event);
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   const handleEventUpdate = (updatedEvent: Event) => {
     setCurrentEvent(updatedEvent);
     onUpdate?.(updatedEvent);
   };
+
+  // Get the actual image URL - same logic as details page
+  const getImageUrl = () => {
+    const raw = currentEvent.image;
+    if (!raw || typeof raw !== 'string') return null;
+    
+    const trimmed = raw.trim();
+    // Return the URL as-is if it's a valid HTTP URL
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return null;
+  };
+
+  const imageUrl = getImageUrl();
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Date TBD';
@@ -106,20 +123,29 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
   return (
     <Card className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 ${className}`}>
       {/* Event Image Header */}
-      <div className="relative h-48 overflow-hidden">
-        {currentEvent.image ? (
-          <Image
-            src={currentEvent.image}
-            alt={currentEvent.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 flex items-center justify-center">
-            <Sparkles className="w-12 h-12 text-white opacity-50" />
-          </div>
-        )}
-        
+      <div className="relative h-48 overflow-hidden bg-gray-200">
+        <div className="w-full h-full">
+          {imageUrl && !imageLoadError ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={imageUrl}
+              alt={currentEvent.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              loading="lazy"
+              onError={() => {
+                console.warn('❌ Failed to load image for event:', currentEvent.title, '- URL:', imageUrl);
+                setImageLoadError(true);
+              }}
+              onLoad={() => {
+                console.log('✅ Image loaded successfully for event:', currentEvent.title);
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 flex items-center justify-center">
+              <Sparkles className="w-12 h-12 text-white opacity-50" />
+            </div>
+          )}
+        </div>
         {/* Overlay badges */}
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge className={`${getCategoryColor(currentEvent.category)} backdrop-blur-sm bg-opacity-90`}>
@@ -248,7 +274,7 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
               {currentEvent.hostId.profileImage ? (
                 <AvatarImage src={currentEvent.hostId.profileImage} alt={currentEvent.hostId.fullName || 'Host'} />
               ) : (
-                <AvatarFallback className="text-xs bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                <AvatarFallback className="text-xs bg-linear-to-br from-green-500 to-emerald-600 text-white">
                   {currentEvent.hostId.fullName ? 
                     currentEvent.hostId.fullName.split(' ').map(n => n[0]).join('') : 
                     'H'
@@ -320,7 +346,7 @@ export default function EventCard({ event, onUpdate, className = '' }: EventCard
 
         {/* View Details Button */}
         <Link href={`/events/${currentEvent._id}`} className="w-full">
-          <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium transition-all duration-300 transform hover:scale-105">
+          <Button className="w-full bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium transition-all duration-300 transform hover:scale-105">
             <ExternalLink className="w-4 h-4 mr-2" />
             View Details
           </Button>

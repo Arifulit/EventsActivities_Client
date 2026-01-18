@@ -40,9 +40,15 @@ class AIEventService {
    */
   async generateEventSuggestions(hostProfile: any): Promise<AIEventSuggestion[]> {
     try {
+      // Validate hostProfile exists
+      if (!hostProfile) {
+        console.warn('AI Events: No host profile provided, cannot generate suggestions');
+        return [];
+      }
+
       const response = await api.post(`${this.baseURL}/events/suggest`, {
         hostProfile,
-        location: hostProfile.location,
+        location: hostProfile.location || 'Unknown',
         interests: hostProfile.interests || [],
         pastEvents: hostProfile.pastEvents || [],
         marketTrends: true

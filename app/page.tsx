@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 'use client';
@@ -38,40 +39,36 @@ export default function HomePage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Only try to fetch if we're not in a critical error state
-        const response = await api.get('/public/stats', { 
-          timeout: 5000, // Shorter timeout for stats
-          validateStatus: (status) => status < 500 // Don't throw for 4xx errors
+        // Call the Next.js API route directly (not through the backend API)
+        const response = await fetch('/api/public/stats', { 
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
         
-        // Check if response is valid JSON
-        if (response.data && typeof response.data === 'object') {
-          const data = response.data.data;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const data = result.data;
           setPlatformStats([
-            { number: data.totalUsers ? data.totalUsers.toLocaleString() : '10K+', label: 'Active Users' },
-            { number: data.totalEvents ? data.totalEvents.toLocaleString() : '5K+', label: 'Events Created' },
-            { number: data.citiesCovered ? data.citiesCovered.toLocaleString() : '50+', label: 'Cities Covered' },
-            { number: data.averageRating ? data.averageRating.toFixed(1) : '4.8', label: 'Average Rating' }
+            { number: data.totalUsers ? data.totalUsers.toLocaleString() : '0', label: 'Active Users' },
+            { number: data.totalEvents ? data.totalEvents.toLocaleString() : '0', label: 'Events Created' },
+            { number: data.citiesCovered ? data.citiesCovered.toLocaleString() : '0', label: 'Cities Covered' },
+            { number: data.averageRating ? data.averageRating.toFixed(1) : '0', label: 'Average Rating' }
           ]);
-        } else {
-          throw new Error('Invalid response format');
         }
       } catch (error: any) {
         console.error('Failed to fetch platform stats:', error);
-        
-        // Check if it's a network/server error
-        if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED' || 
-            error.code === 'ECONNABORTED' || error.message?.includes('Network Error') || 
-            error.message?.includes('HTML') || !error.response) {
-          console.warn('Backend server may not be running - using fallback data');
-        }
-        
-        // Set fallback stats if API fails
         setPlatformStats([
-          { number: '10K+', label: 'Active Users' },
-          { number: '5K+', label: 'Events Created' },
-          { number: '50+', label: 'Cities Covered' },
-          { number: '4.8', label: 'Average Rating' }
+          { number: '0', label: 'Active Users' },
+          { number: '0', label: 'Events Created' },
+          { number: '0', label: 'Cities Covered' },
+          { number: '0', label: 'Average Rating' }
         ]);
       } finally {
         setStatsLoading(false);

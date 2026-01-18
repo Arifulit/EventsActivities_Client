@@ -151,7 +151,7 @@ export default function AdminSidebar({ isOpen, mobileOpen, onMobileClose, pathna
         className={cn(
           'group flex items-center px-3 py-2.5 text-sm rounded-xl transition-all duration-200 relative',
           active 
-            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
+            ? 'bg-linear-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
           !isOpen && 'justify-center'
         )}
@@ -242,7 +242,7 @@ export default function AdminSidebar({ isOpen, mobileOpen, onMobileClose, pathna
             {isOpen && (
               <h2 className="text-lg font-bold text-gray-900">Admin Panel</h2>
             )}
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">A</span>
             </div>
           </div>

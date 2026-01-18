@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Textarea } from '@/app/components/ui/textarea';
-import { Label } from '@/app/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { toast } from 'react-hot-toast';
-import api from '@/app/lib/api';
+import api from '@/lib/api';
 
 interface EventData {
   title: string;
@@ -21,14 +22,20 @@ interface EventData {
     venue: string;
     address: string;
     city: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
   };
   maxParticipants: number;
+  minParticipants?: number;
   price: number;
-  paymentType: 'free' | 'paid';
-  requirements: string;
-  tags: string;
+  image?: string;
+  images?: string[];
+  requirements: string[];
+  tags: string[];
   isPublic: boolean;
-  status: 'draft' | 'published' | 'cancelled' | 'completed';
+  status: string;
 }
 
 export default function UpdateEventPage() {
@@ -36,13 +43,16 @@ export default function UpdateEventPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<EventData | null>(null);
-
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         const response = await api.get(`/events/${id}`);
         if (response.data.success) {
-          const eventData = response.data.data;
+          const eventData: any = response.data.data;
+          if (!eventData) {
+            toast.error('Event not found');
+            return;
+          }
           setEvent({
             title: eventData.title || '',
             description: eventData.description || '',
@@ -54,15 +64,18 @@ export default function UpdateEventPage() {
             location: {
               venue: eventData.location?.venue || '',
               address: eventData.location?.address || '',
-              city: eventData.location?.city || ''
+              city: eventData.location?.city || '',
+              coordinates: eventData.location?.coordinates
             },
             maxParticipants: eventData.maxParticipants || 10,
+            minParticipants: eventData.minParticipants,
             price: eventData.price || 0,
-            paymentType: eventData.paymentType || (eventData.price > 0 ? 'paid' : 'free'),
-            requirements: eventData.requirements ? eventData.requirements.join('\n') : '',
-            tags: eventData.tags ? eventData.tags.join(',') : '',
+            image: eventData.image,
+            images: eventData.images || [],
+            requirements: Array.isArray(eventData.requirements) ? eventData.requirements : [],
+            tags: Array.isArray(eventData.tags) ? eventData.tags : [],
             isPublic: eventData.isPublic !== false,
-            status: eventData.status || 'draft'
+            status: eventData.status || 'open'
           });
         }
       } catch (error) {
@@ -82,23 +95,35 @@ export default function UpdateEventPage() {
 
     try {
       const updatedEvent = {
-        ...event,
-        requirements: event.requirements.split('\n').filter(r => r.trim() !== ''),
-        tags: event.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
-        date: event.date ? new Date(event.date).toISOString() : event.date,
+        title: event.title,
+        description: event.description,
+        type: event.type,
+        category: event.category,
+        date: event.date ? new Date(event.date + 'T' + event.time).toISOString() : new Date().toISOString(),
+        time: event.time,
+        duration: Number(event.duration),
         location: {
-          ...event.location,
           venue: event.location.venue,
           address: event.location.address,
-          city: event.location.city
-        }
+          city: event.location.city,
+          ...(event.location.coordinates && { coordinates: event.location.coordinates })
+        },
+        maxParticipants: Number(event.maxParticipants),
+        ...(event.minParticipants && { minParticipants: Number(event.minParticipants) }),
+        price: Number(event.price),
+        ...(event.image && { image: event.image }),
+        ...(event.images && event.images.length > 0 && { images: event.images }),
+        requirements: Array.isArray(event.requirements) ? event.requirements.filter(r => r.trim() !== '') : [],
+        tags: Array.isArray(event.tags) ? event.tags.filter(tag => tag.trim() !== '') : [],
+        status: event.status,
+        isPublic: event.isPublic
       };
 
-      const response = await api.put(`/events/${id}`, updatedEvent);
+      // Use POST as a workaround if PUT is not available
+      const response = await api.post(`/events/${id}`, updatedEvent);
       
       if (response.data.success) {
         toast.success('Event updated successfully');
-        // Redirect to host dashboard events page instead of public event page
         router.push('/dashboard/host/events');
       }
     } catch (error) {
@@ -109,41 +134,26 @@ export default function UpdateEventPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
+
+    // Explicitly handle nested location fields to avoid `never` inference
+    if (name.startsWith('location.')) {
+      const field = name.replace('location.', '') as 'venue' | 'address' | 'city';
       setEvent(prev => prev ? {
         ...prev,
-        [parent]: {
-          ...(prev as any)[parent],
-          [child]: value
-        }
+        location: {
+          ...prev.location,
+          [field]: value,
+        },
       } : null);
-    } else {
-      setEvent(prev => prev ? {
-        ...prev,
-        [name]: name === 'maxParticipants' || name === 'price' || name === 'duration' 
-          ? Number(value) 
-          : name === 'paymentType' 
-          ? value as 'free' | 'paid'
-          : value
-      } : null);
+      return;
     }
 
-    // Auto-update price based on payment type
-    if (name === 'paymentType') {
-      setEvent(prev => prev ? {
-        ...prev,
-        paymentType: value as 'free' | 'paid',
-        price: value === 'free' ? 0 : prev.price || 10
-      } : null);
-    }
-  };
+    const numericFields = ['maxParticipants', 'minParticipants', 'price', 'duration'] as const;
+    const isNumeric = (f: string): f is (typeof numericFields)[number] => numericFields.includes(f as any);
 
-  const handlePaymentTypeChange = (value: 'free' | 'paid') => {
     setEvent(prev => prev ? {
       ...prev,
-      paymentType: value,
-      price: value === 'free' ? 0 : prev.price || 10
+      [name]: isNumeric(name) ? (Number(value) || 0) : value,
     } : null);
   };
 
@@ -314,7 +324,7 @@ export default function UpdateEventPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="maxParticipants">Maximum Participants</Label>
             <Input
@@ -327,55 +337,30 @@ export default function UpdateEventPage() {
               required
             />
           </div>
-          <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Payment Type
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => handlePaymentTypeChange('free')}
-                className={`p-3 border-2 rounded-lg text-center transition-all ${
-                  event.paymentType === 'free'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-semibold">Free Event</div>
-                <div className="text-xs text-gray-600 mt-1">No cost to attend</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePaymentTypeChange('paid')}
-                className={`p-3 border-2 rounded-lg text-center transition-all ${
-                  event.paymentType === 'paid'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-semibold">Paid Event</div>
-                <div className="text-xs text-gray-600 mt-1">Requires payment</div>
-              </button>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="minParticipants">Minimum Participants</Label>
+            <Input
+              type="number"
+              id="minParticipants"
+              name="minParticipants"
+              min="1"
+              value={event.minParticipants || ''}
+              onChange={handleChange}
+            />
           </div>
-
-          {event.paymentType === 'paid' && (
-            <div className="space-y-2">
-              <Label htmlFor="price">Price (USD)</Label>
-              <Input
-                type="number"
-                id="price"
-                name="price"
-                min="0.01"
-                step="0.01"
-                value={event.price}
-                onChange={handleChange}
-                required
-              />
-            </div>
-          )}
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="price">Price (Taka)</Label>
+            <Input
+              type="number"
+              id="price"
+              name="price"
+              min="0"
+              step="0.01"
+              value={event.price}
+              onChange={handleChange}
+              required
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -383,8 +368,11 @@ export default function UpdateEventPage() {
           <Textarea
             id="requirements"
             name="requirements"
-            value={event.requirements}
-            onChange={handleChange}
+            value={Array.isArray(event.requirements) ? event.requirements.join('\n') : ''}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+              const lines = e.target.value.split('\n');
+              setEvent(prev => prev ? { ...prev, requirements: lines } : null);
+            }}
             rows={3}
           />
         </div>
@@ -394,8 +382,11 @@ export default function UpdateEventPage() {
           <Input
             id="tags"
             name="tags"
-            value={event.tags}
-            onChange={handleChange}
+            value={Array.isArray(event.tags) ? event.tags.join(', ') : ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const tagsArray = e.target.value.split(',').map((tag: string) => tag.trim());
+              setEvent(prev => prev ? { ...prev, tags: tagsArray } : null);
+            }}
             placeholder="tech, workshop, web-development"
           />
         </div>
@@ -409,8 +400,7 @@ export default function UpdateEventPage() {
             onChange={handleChange}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
+            <option value="open">Open</option>
             <option value="cancelled">Cancelled</option>
             <option value="completed">Completed</option>
           </select>
@@ -425,7 +415,7 @@ export default function UpdateEventPage() {
             onChange={handleCheckboxChange}
             className="h-4 w-4"
           />
-          <Label htmlFor="isPublic" className="!m-0">
+          <Label htmlFor="isPublic" className="m-0!">
             Make this event public
           </Label>
         </div>

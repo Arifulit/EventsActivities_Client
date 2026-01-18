@@ -7,19 +7,36 @@ export async function PATCH(
   try {
     const { userId } = await params;
     
+    console.log('Ban request received for user:', userId);
+    
     // Get the token from request headers
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
     
     if (!token) {
+      console.log('No authorization token found');
       return NextResponse.json(
         { success: false, message: 'Authorization token required' },
         { status: 401 }
       );
     }
 
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    console.log('Backend URL:', backendUrl);
+    
+    if (!backendUrl) {
+      console.error('NEXT_PUBLIC_API_URL is not configured');
+      return NextResponse.json(
+        { success: false, message: 'Backend API URL not configured' },
+        { status: 500 }
+      );
+    }
+
     // Call your backend API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${userId}/ban`, {
+    const apiUrl = `${backendUrl}/api/admin/users/${userId}/ban`;
+    console.log('Calling backend API:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -27,7 +44,10 @@ export async function PATCH(
       },
     });
 
+    console.log('Backend response status:', response.status);
+    
     const data = await response.json();
+    console.log('Backend response data:', data);
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status });
@@ -37,7 +57,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Ban user error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: 'Internal server error', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

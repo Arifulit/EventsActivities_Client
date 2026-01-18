@@ -11,7 +11,7 @@ cloudinary.config({
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('image') as File;
+    const file = formData.get('file') || formData.get('image');
 
     if (!file) {
       return NextResponse.json(
@@ -20,6 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if file is actually a File object
+    if (typeof file === 'string' || !(file instanceof File)) {
+      return NextResponse.json(
+        { message: 'Invalid file format' },
+        { status: 400 }
+      );
+    }
+
+    // Now TypeScript knows file is a File object
     // Validate file type
     if (!file.type.startsWith('image/')) {
       return NextResponse.json(

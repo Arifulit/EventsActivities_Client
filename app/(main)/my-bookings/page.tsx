@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getMyBookings, BookingResponse } from '@/app/lib/payments';
 import { getEventById, Event } from '@/app/lib/events';
 import { format, parseISO } from 'date-fns';
@@ -15,7 +15,6 @@ import { toast } from 'react-hot-toast';
 import {
   Calendar,
   MapPin,
-  Users,
   Clock,
   DollarSign,
   Download,
@@ -25,11 +24,16 @@ import {
   Ticket,
   CheckCircle2,
   XCircle,
-  AlertCircle,
-  QrCode
+  AlertCircle
 } from 'lucide-react';
 
-interface BookingWithEvent extends BookingResponse {
+interface BookingWithEvent {
+  bookingId: string;
+  eventId: string;
+  paymentId: string;
+  status: string;
+  amount: number;
+  createdAt: string;
   event: Event;
 }
 
@@ -62,19 +66,28 @@ export default function MyBookingsPage() {
         response.data.map(async (booking: BookingResponse) => {
           try {
             const event = await getEventById(booking.data.eventId);
-            return { ...booking, event };
-          } catch (err) {
+            return {
+              bookingId: booking.data.bookingId,
+              eventId: booking.data.eventId,
+              paymentId: booking.data.paymentId,
+              status: booking.data.status,
+              amount: booking.data.amount,
+              createdAt: booking.data.createdAt,
+              event
+            };
+          } catch {
             console.error('Error fetching event for booking:', booking.data.eventId);
             return null;
           }
         })
       );
 
-      const validBookings = bookingsWithEvents.filter(booking => booking !== null);
+      const validBookings = bookingsWithEvents.filter((booking): booking is BookingWithEvent => booking !== null);
       setBookings(validBookings);
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load your bookings';
       console.error('Error fetching bookings:', err);
-      setError(err.response?.data?.message || 'Failed to load your bookings');
+      setError(errorMessage);
       toast.error('Failed to load your bookings');
     } finally {
       setLoading(false);
@@ -123,7 +136,7 @@ export default function MyBookingsPage() {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const handleDownloadTicket = (booking: BookingWithEvent) => {
+  const handleDownloadTicket = () => {
     toast('Ticket download feature coming soon!');
   };
 
@@ -132,11 +145,11 @@ export default function MyBookingsPage() {
       navigator.share({
         title: `My Booking: ${booking.event.title}`,
         text: `I'm attending ${booking.event.title} on ${formatDate(booking.event.date)}!`,
-        url: window.location.origin + `/bookings/${booking.data.bookingId}/confirm`,
+        url: window.location.origin + `/bookings/${booking.bookingId}/confirm`,
       });
     } else {
       navigator.clipboard.writeText(
-        window.location.origin + `/bookings/${booking.data.bookingId}/confirm`
+        window.location.origin + `/bookings/${booking.bookingId}/confirm`
       );
       toast.success('Booking link copied to clipboard!');
     }
@@ -145,17 +158,18 @@ export default function MyBookingsPage() {
   const filterBookings = (status: string) => {
     const now = new Date();
     return bookings.filter(booking => {
+      if (!booking.event?.date) return false;
       const eventDate = new Date(booking.event.date);
       
       switch (status) {
         case 'upcoming':
-          return eventDate >= now && booking.data.status === 'confirmed';
+          return eventDate >= now && booking.status === 'confirmed';
         case 'past':
           return eventDate < now;
         case 'pending':
-          return booking.data.status === 'pending';
+          return booking.status === 'pending';
         case 'cancelled':
-          return booking.data.status === 'cancelled';
+          return booking.status === 'cancelled';
         default:
           return true;
       }
@@ -330,7 +344,7 @@ export default function MyBookingsPage() {
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">No upcoming bookings</h3>
               <p className="text-gray-600 mb-6 text-sm sm:text-base max-w-md mx-auto">
-                You don't have any confirmed bookings for upcoming events
+                You don&apos;t have any confirmed bookings for upcoming events
               </p>
               <Link href="/events">
                 <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
@@ -342,14 +356,14 @@ export default function MyBookingsPage() {
           ) : (
             <div className="space-y-4 sm:space-y-6">
               {upcomingBookings.map((booking) => (
-                <Card key={booking.data.bookingId} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
+                <Card key={booking.bookingId} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                       <div className="flex-1 w-full">
                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <Badge className={`${getStatusColor(booking.data.status)} px-3 py-1 rounded-full`}>
-                            {getStatusIcon(booking.data.status)}
-                            <span className="ml-1 text-xs font-medium">{booking.data.status}</span>
+                          <Badge className={`${getStatusColor(booking.status)} px-3 py-1 rounded-full`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="ml-1 text-xs font-medium">{booking.status}</span>
                           </Badge>
                           {booking.event.price > 0 && (
                             <Badge variant="outline" className="text-green-600 border-green-200 px-3 py-1 rounded-full">
@@ -378,13 +392,13 @@ export default function MyBookingsPage() {
                         </div>
                         
                         <div className="mt-4 text-xs sm:text-sm text-gray-500 space-y-1">
-                          <p>Booking ID: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{booking.data.bookingId}</span></p>
-                          <p>Booked on: {formatDate(booking.data.createdAt)}</p>
+                          <p>Booking ID: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{booking.bookingId}</span></p>
+                          <p>Booked on: {formatDate(booking.createdAt)}</p>
                         </div>
                       </div>
                       
                       <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
-                        <Link href={`/bookings/${booking.data.bookingId}/confirm`} className="flex-1 lg:flex-initial">
+                        <Link href={`/bookings/${booking.bookingId}/confirm`} className="flex-1 lg:flex-initial">
                           <Button size="sm" className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                             <ExternalLink className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">View Details</span>
@@ -395,7 +409,7 @@ export default function MyBookingsPage() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleDownloadTicket(booking)}
+                            onClick={() => handleDownloadTicket()}
                             className="flex-1"
                           >
                             <Download className="w-4 h-4 mr-1 sm:mr-2" />
@@ -430,20 +444,20 @@ export default function MyBookingsPage() {
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">No past events</h3>
               <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto">
-                You haven't attended any events yet
+                You haven&apos;t attended any events yet
               </p>
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
               {pastBookings.map((booking) => (
-                <Card key={booking.data.bookingId} className="opacity-75 hover:opacity-90 transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
+                <Card key={booking.bookingId} className="opacity-75 hover:opacity-90 transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                       <div className="flex-1 w-full">
                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <Badge className={`${getStatusColor(booking.data.status)} px-3 py-1 rounded-full`}>
-                            {getStatusIcon(booking.data.status)}
-                            <span className="ml-1 text-xs font-medium">{booking.data.status}</span>
+                          <Badge className={`${getStatusColor(booking.status)} px-3 py-1 rounded-full`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="ml-1 text-xs font-medium">{booking.status}</span>
                           </Badge>
                           <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200 px-3 py-1 rounded-full">
                             <span className="text-xs font-medium">Completed</span>
@@ -470,7 +484,7 @@ export default function MyBookingsPage() {
                       </div>
                       
                       <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
-                        <Link href={`/bookings/${booking.data.bookingId}/confirm`} className="flex-1 lg:flex-initial">
+                        <Link href={`/bookings/${booking.bookingId}/confirm`} className="flex-1 lg:flex-initial">
                           <Button size="sm" variant="outline" className="w-full lg:w-auto">
                             <ExternalLink className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">View Details</span>
@@ -500,14 +514,14 @@ export default function MyBookingsPage() {
           ) : (
             <div className="space-y-4 sm:space-y-6">
               {pendingBookings.map((booking) => (
-                <Card key={booking.data.bookingId} className="border-yellow-200 border-2 hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm overflow-hidden">
+                <Card key={booking.bookingId} className="border-yellow-200 border-2 hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm overflow-hidden">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                       <div className="flex-1 w-full">
                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <Badge className={`${getStatusColor(booking.data.status)} px-3 py-1 rounded-full`}>
-                            {getStatusIcon(booking.data.status)}
-                            <span className="ml-1 text-xs font-medium">{booking.data.status}</span>
+                          <Badge className={`${getStatusColor(booking.status)} px-3 py-1 rounded-full`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="ml-1 text-xs font-medium">{booking.status}</span>
                           </Badge>
                           <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200 px-3 py-1 rounded-full">
                             <span className="text-xs font-medium">Action Required</span>
@@ -546,7 +560,7 @@ export default function MyBookingsPage() {
                       </div>
                       
                       <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
-                        <Link href={`/bookings/${booking.data.bookingId}/confirm`} className="flex-1 lg:flex-initial">
+                        <Link href={`/bookings/${booking.bookingId}/confirm`} className="flex-1 lg:flex-initial">
                           <Button size="sm" className="w-full lg:w-auto bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
                             <AlertCircle className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">Complete Payment</span>
@@ -570,20 +584,20 @@ export default function MyBookingsPage() {
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">No cancelled bookings</h3>
               <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto">
-                You haven't cancelled any bookings
+                You haven&apos;t cancelled any bookings
               </p>
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
               {cancelledBookings.map((booking) => (
-                <Card key={booking.data.bookingId} className="opacity-50 hover:opacity-75 transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
+                <Card key={booking.bookingId} className="opacity-50 hover:opacity-75 transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm overflow-hidden">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                       <div className="flex-1 w-full">
                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <Badge className={`${getStatusColor(booking.data.status)} px-3 py-1 rounded-full`}>
-                            {getStatusIcon(booking.data.status)}
-                            <span className="ml-1 text-xs font-medium">{booking.data.status}</span>
+                          <Badge className={`${getStatusColor(booking.status)} px-3 py-1 rounded-full`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="ml-1 text-xs font-medium">{booking.status}</span>
                           </Badge>
                         </div>
                         

@@ -766,7 +766,7 @@ export default function AdminEvents() {
                                         </DropdownMenuSubContent>
                                       </DropdownMenuSub>
                                       <DropdownMenuSeparator className="bg-gray-100" />
-                                      {event.status === 'open' && (
+                                      {/* {event.status === 'open' && (
                                         <DropdownMenuItem 
                                           onClick={() => handleEventAction(event._id, 'cancel')}
                                           className="cursor-pointer hover:bg-gray-50 transition-colors text-orange-600"
@@ -774,7 +774,7 @@ export default function AdminEvents() {
                                           <XCircle className="w-4 h-4 mr-2" />
                                           Cancel Event
                                         </DropdownMenuItem>
-                                      )}
+                                      )} */}
                                       <DropdownMenuItem 
                                         onClick={() => handleEventAction(event._id, 'delete')}
                                         className="cursor-pointer hover:bg-red-50 transition-colors text-red-600"
@@ -910,7 +910,7 @@ export default function AdminEvents() {
                                       </DropdownMenuSubContent>
                                     </DropdownMenuSub>
                                     <DropdownMenuSeparator className="bg-gray-100" />
-                                    {event.status === 'open' && (
+                                    {/* {event.status === 'open' && (
                                       <DropdownMenuItem 
                                         onClick={() => handleEventAction(event._id, 'cancel')}
                                         className="cursor-pointer hover:bg-gray-50 transition-colors text-orange-600"
@@ -918,7 +918,7 @@ export default function AdminEvents() {
                                         <XCircle className="w-4 h-4 mr-2" />
                                         Cancel Event
                                       </DropdownMenuItem>
-                                    )}
+                                    )} */}
                                     <DropdownMenuItem 
                                       onClick={() => handleEventAction(event._id, 'delete')}
                                       className="cursor-pointer hover:bg-red-50 transition-colors text-red-600"

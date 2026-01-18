@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -259,49 +260,79 @@ export default function AdminAnalyticsPage() {
     fetchAnalyticsData();
   }, [selectedPeriod]);
 
-  const fetchAnalyticsData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Parallel API calls for better performance
-      const [userResponse, revenueResponse, eventResponse] = await Promise.allSettled([
-        api.get(`/admin/analytics/users?period=${selectedPeriod}`),
-        api.get(`/admin/analytics/revenue?period=${selectedPeriod}`),
-        api.get(`/admin/analytics/events?period=${selectedPeriod}`)
-      ]);
+// ...existing code...
 
-      // Handle user analytics
-      if (userResponse.status === 'fulfilled') {
-        setUserAnalytics(userResponse.value.data?.data || userResponse.value.data);
-      } else {
-        console.error('Failed to fetch user analytics:', userResponse.reason);
-        toast.error('Failed to load user analytics');
+const fetchAnalyticsData = async () => {
+  try {
+    setIsLoading(true);
+
+    const [userResponse, revenueResponse, eventResponse] = await Promise.allSettled([
+      api.get(`/admin/analytics/users?period=${selectedPeriod}`),
+      api.get(`/admin/analytics/revenue?period=${selectedPeriod}`),
+      api.get(`/admin/analytics/events?period=${selectedPeriod}`)
+    ]);
+
+    // Handle user analytics
+    if (userResponse.status === 'fulfilled') {
+      const response = userResponse.value.data;
+      if (
+        response &&
+        typeof response === 'object' &&
+        response.data &&
+        typeof response.data === 'object' &&
+        'totalUsers' in response.data
+      ) {
+        setUserAnalytics(response.data as UserAnalytics);
       }
-
-      // Handle revenue analytics
-      if (revenueResponse.status === 'fulfilled') {
-        setRevenueAnalytics(revenueResponse.value.data?.data || revenueResponse.value.data);
-      } else {
-        console.error('Failed to fetch revenue analytics:', revenueResponse.reason);
-        toast.error('Failed to load revenue analytics');
-      }
-
-      // Handle event analytics
-      if (eventResponse.status === 'fulfilled') {
-        setEventAnalytics(eventResponse.value.data?.data || eventResponse.value.data);
-      } else {
-        console.error('Failed to fetch event analytics:', eventResponse.reason);
-        toast.error('Failed to load event analytics');
-      }
-
-    } catch (error: any) {
-      console.error('Failed to fetch analytics:', error);
-      toast.error(error.response?.data?.message || 'Failed to load analytics data');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+    } else {
+      console.error('Failed to fetch user analytics:', userResponse.reason);
+      toast.error('Failed to load user analytics');
     }
-  };
+
+    // Handle revenue analytics
+    if (revenueResponse.status === 'fulfilled') {
+      const response = revenueResponse.value.data;
+      if (
+        response &&
+        typeof response === 'object' &&
+        response.data &&
+        typeof response.data === 'object' &&
+        'summary' in response.data
+      ) {
+        setRevenueAnalytics(response.data as RevenueAnalytics);
+      }
+    } else {
+      console.error('Failed to fetch revenue analytics:', revenueResponse.reason);
+      toast.error('Failed to load revenue analytics');
+    }
+
+    // Handle event analytics
+    if (eventResponse.status === 'fulfilled') {
+      const response = eventResponse.value.data;
+      if (
+        response &&
+        typeof response === 'object' &&
+        response.data &&
+        typeof response.data === 'object' &&
+        'totalEvents' in response.data
+      ) {
+        setEventAnalytics(response.data as EventAnalytics);
+      }
+    } else {
+      console.error('Failed to fetch event analytics:', eventResponse.reason);
+      toast.error('Failed to load event analytics');
+    }
+
+  } catch (error: any) {
+    console.error('Failed to fetch analytics:', error);
+    toast.error(error.response?.data?.message || 'Failed to load analytics data');
+  } finally {
+    setIsLoading(false);
+    setIsRefreshing(false);
+  }
+};
+
+// ...rest of your code...
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -794,7 +825,7 @@ export default function AdminAnalyticsPage() {
                   {eventAnalytics.eventsByCategory.map((category, index) => {
                     const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500'];
                     return (
-                      <div key={category.category} className="flex items-center justify-between">
+                      <div key={`category-${category.category}-${index}`} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`}></div>
                           <span className="text-sm capitalize">{category.category}</span>
@@ -854,7 +885,7 @@ export default function AdminAnalyticsPage() {
                     };
 
                     return (
-                      <div key={status.status || `status-${index}`} className="flex items-center justify-between">
+                      <div key={`status-${status.status || 'unknown'}-${index}`} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className={`p-1 rounded ${getStatusColor(status.status)}`}>
                             {getStatusIcon(status.status)}

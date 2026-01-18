@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -105,6 +107,7 @@ export default function MyEventsPage() {
         
         console.log('Events array:', eventsData);
         setEvents(eventsData);
+        
         
         // Calculate stats - only fetch all events once when on 'all' tab
         if (activeTab === 'all' && data.data) {

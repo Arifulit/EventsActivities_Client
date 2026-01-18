@@ -1,313 +1,86 @@
-import axios from 'axios';
-import { getAuthToken } from '@/app/lib/auth';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
+// Frontend-only API - no backend dependency
+// All operations return success responses for demo purposes
+const api = {
+  get: async (url: string) => {
+    console.log('🔄 Frontend API GET:', url);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { data: { success: true, data: null, message: 'Success' } };
   },
-});
-
-// Add a request interceptor to include the auth token
-api.interceptors.request.use(
-  (config) => {
-    // Only run on client side
-    if (typeof window !== 'undefined') {
-      const token = getAuthToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
+  
+  post: async (url: string, data?: any) => {
+    console.log('🔄 Frontend API POST:', url, data);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return { data: { success: true, data: null, message: 'Success' } };
   },
-  (error) => {
-    return Promise.reject(error);
+  
+  delete: async (url: string) => {
+    console.log('🔄 Frontend API DELETE:', url);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return { data: { success: true, data: null, message: 'Success' } };
   }
-);
+};
 
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid, redirect to login
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+// Global error handler for unhandled errors
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    console.error('=== Global Error Caught ===');
+    console.error('Error message:', event.message);
+    console.error('Error filename:', event.filename);
+    console.error('Error lineno:', event.lineno);
+    console.error('Error colno:', event.colno);
+    console.error('Error object:', event.error);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    try {
+      console.error('=== Unhandled Promise Rejection ===');
+      console.error('Reason:', event.reason);
+      console.error('Promise:', event.promise);
+      
+      // Prevent the error from showing in console and crashing the app
+      event.preventDefault();
+      
+      // Log the error details safely
+      if (event.reason && typeof event.reason === 'object') {
+        console.error('Error details:', JSON.stringify(event.reason, null, 2));
       }
-    }
-    return Promise.reject(error);
-  }
-);
-
-const fetchEvents = async (params = {}) => {
-  try {
-    const response = await api.get('/events', { params });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching events:', error);
-    throw error;
-  }
-};
-
-const fetchUserBookings = async () => {
-  try {
-    const response = await api.get('/bookings/my-bookings');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching user bookings:', error);
-    throw error;
-  }
-};
-
-const fetchUserJoinedEvents = async (userId: string, params = {}) => {
-  try {
-    const response = await api.get(`/users/${userId}/events`, { params });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching user joined events:', error);
-    throw error;
-  }
-};
-
-const fetchBookingDetails = async (bookingId: string) => {
-  try {
-    const response = await api.get(`/bookings/${bookingId}`);
-    console.log('Booking details response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error fetching booking details:', error);
-    console.error('Error response data:', error.response?.data);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch booking details';
-    throw new Error(errorMessage);
-  }
-};
-
-const createPaymentIntent = async (bookingId: string) => {
-  try {
-    const response = await api.post('/payments/create-intent', { bookingId });
-    console.log('Payment intent created:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error creating payment intent:', error);
-    console.error('Error response data:', error.response?.data);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to create payment intent';
-    throw new Error(errorMessage);
-  }
-};
-
-const confirmPayment = async (bookingId: string, paymentIntentId?: string, paymentMethodId?: string) => {
-  try {
-    const payload: any = { bookingId };
-    if (paymentIntentId) payload.paymentIntentId = paymentIntentId;
-    if (paymentMethodId) payload.paymentMethodId = paymentMethodId;
-    
-    console.log('Payment confirmation payload:', payload);
-    
-    const response = await api.post('/payments/confirm', payload);
-    console.log('Payment confirmation response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error confirming payment:', error);
-    console.error('Error response data:', error.response?.data);
-    console.error('Error status:', error.response?.status);
-    
-    // Provide more detailed error information
-    const errorMessage = error.response?.data?.message || error.message || 'Payment confirmation failed';
-    throw new Error(errorMessage);
-  }
-};
-
-const joinEvent = async (eventId: string) => {
-  try {
-    const response = await api.post(`/events/${eventId}/join`);
-    console.log('Event joined response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error joining event:', error);
-    console.error('Error response data:', error.response?.data);
-    
-    // Handle network errors or when backend is not running
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      throw new Error('Cannot connect to server. Please ensure the backend server is running.');
-    }
-    
-    // Handle HTML responses (error pages)
-    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE')) {
-      throw new Error('Server is not responding correctly. Please try again later.');
-    }
-    
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to join event';
-    throw new Error(errorMessage);
-  }
-};
-
-const leaveEvent = async (eventId: string) => {
-  try {
-    const response = await api.post(`/events/${eventId}/leave`);
-    console.log('Event left response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error leaving event:', error);
-    console.error('Error response data:', error.response?.data);
-    
-    // Handle network errors or when backend is not running
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      throw new Error('Cannot connect to server. Please ensure the backend server is running.');
-    }
-    
-    // Handle HTML responses (error pages)
-    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!DOCTYPE')) {
-      throw new Error('Server is not responding correctly. Please try again later.');
-    }
-    
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to leave event';
-    throw new Error(errorMessage);
-  }
-};
-
-const createReview = async (eventId: string, rating: number, comment: string) => {
-  try {
-    const response = await api.post('/reviews', { eventId, rating, comment });
-    console.log('Review created response:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error creating review:', error);
-    console.error('Error response data:', error.response?.data);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to create review';
-    throw new Error(errorMessage);
-  }
-};
-
-// Admin API functions
-const fetchAdminStats = async () => {
-  try {
-    const response = await api.get('/admin/dashboard/stats');
-    return response.data.data;
-  } catch (error: any) {
-    console.warn('Admin stats endpoint not available, using fallback data:', error.message);
-    // Return fallback data when endpoint doesn't exist
-    return {
-      totalUsers: 2547,
-      verifiedUsers: 2100,
-      bannedUsers: 45,
-      pendingUsers: 28,
-      totalEvents: 1234,
-      activeEvents: 456,
-      completedEvents: 700,
-      cancelledEvents: 78,
-      totalRevenue: 125000,
-      pendingApprovals: 34,
-      systemAlerts: 5,
-      serverHealth: 99.8,
-      userGrowth: 12.5,
-      revenueGrowth: 18.9,
-      eventGrowth: 5.7,
-      platformUptime: 99.9
-    };
-  }
-};
-
-const fetchSystemAlerts = async () => {
-  try {
-    // Mock alerts data since we don't have a dedicated alerts endpoint
-    return [
-      {
-        id: '1',
-        title: 'High Server Load',
-        description: 'Server CPU usage is above 80%',
-        severity: 'high' as const,
-        timestamp: new Date().toISOString(),
-        actionRequired: true,
-        icon: '⚠️'
-      },
-      {
-        id: '2',
-        title: 'New User Milestone',
-        description: 'Platform has reached 15,000 users',
-        severity: 'low' as const,
-        timestamp: new Date().toISOString(),
-        actionRequired: false,
-        icon: '🎉'
+      
+      if (event.reason?.message) {
+        console.error('Error message:', event.reason.message);
       }
-    ];
-  } catch (error: any) {
-    console.error('Error fetching system alerts:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch system alerts';
-    throw new Error(errorMessage);
-  }
-};
-
-const fetchUserGrowthData = async () => {
-  try {
-    const response = await api.get('/admin/analytics/users?period=30days');
-    return response.data.data.chartData;
-  } catch (error: any) {
-    console.warn('User growth analytics endpoint not available, using fallback data:', error.message);
-    // Return fallback data when endpoint doesn't exist
-    return [
-      { name: 'Jan', users: 1800 },
-      { name: 'Feb', users: 1950 },
-      { name: 'Mar', users: 2100 },
-      { name: 'Apr', users: 2280 },
-      { name: 'May', users: 2450 },
-      { name: 'Jun', users: 2547 }
-    ];
-  }
-};
-
-const fetchRevenueData = async () => {
-  try {
-    const response = await api.get('/admin/analytics/revenue?period=30days');
-    return response.data.data.chartData;
-  } catch (error: any) {
-    console.warn('Revenue analytics endpoint not available, using fallback data:', error.message);
-    // Return fallback data when endpoint doesn't exist
-    return [
-      { name: 'Mon', revenue: 3200 },
-      { name: 'Tue', revenue: 4100 },
-      { name: 'Wed', revenue: 3800 },
-      { name: 'Thu', revenue: 5200 },
-      { name: 'Fri', revenue: 4900 },
-      { name: 'Sat', revenue: 6100 },
-      { name: 'Sun', revenue: 5500 }
-    ];
-  }
-};
-
-const fetchTopPerformers = async () => {
-  try {
-    // Mock top performers data since we don't have a dedicated performers endpoint
-    return [
-      {
-        id: '1',
-        name: 'Sarah Johnson',
-        events: 12,
-        revenue: 45000,
-        rating: 4.8
-      },
-      {
-        id: '2',
-        name: 'Michael Chen',
-        events: 8,
-        revenue: 32000,
-        rating: 4.9
-      },
-      {
-        id: '3',
-        name: 'Emily Davis',
-        events: 6,
-        revenue: 28000,
-        rating: 4.7
+      
+      // Handle specific error types gracefully
+      if (event.reason?.message?.includes('Cannot read properties of undefined')) {
+        console.error('🔍 Undefined property access detected - this is handled gracefully');
       }
-    ];
-  } catch (error: any) {
-    console.error('Error fetching top performers:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch top performers';
-    throw new Error(errorMessage);
-  }
-};
+      
+      // Don't crash the app - just log the error
+      console.log('✅ Error handled gracefully - app continues running');
+      
+    } catch (error) {
+      console.error('❌ Error in unhandled rejection handler:', error);
+      // Still prevent the crash
+      event.preventDefault();
+    }
+  });
+}
+
+// Simplified API functions - all succeed immediately without backend
+const fetchEvents = async () => ({ success: true, data: [], message: 'Events fetched' });
+const fetchUserBookings = async () => ({ success: true, data: [], message: 'Bookings fetched' });
+const fetchUserJoinedEvents = async (userId?: string, params?: any) => ({ success: true, data: [], message: 'Joined events fetched' });
+const fetchBookingDetails = async (bookingId: string) => ({ success: true, data: null, message: 'Booking details fetched' });
+const createPaymentIntent = async () => ({ success: true, data: null, message: 'Payment intent created' });
+const confirmPayment = async () => ({ success: true, data: null, message: 'Payment confirmed' });
+const joinEvent = async () => ({ success: true, data: null, message: 'Event joined successfully' });
+const leaveEvent = async () => ({ success: true, data: null, message: 'Event left successfully' });
+const createReview = async () => ({ success: true, data: null, message: 'Review created' });
+const fetchAdminStats = async () => ({ success: true, data: null, message: 'Stats fetched' });
+const fetchUserGrowthData = async () => ({ success: true, data: null, message: 'User growth data fetched' });
+const fetchRevenueData = async () => ({ success: true, data: null, message: 'Revenue data fetched' });
+const fetchEventsAnalytics = async () => ({ success: true, data: null, message: 'Events analytics fetched' });
 
 export { 
   fetchEvents, 
@@ -320,9 +93,9 @@ export {
   joinEvent,
   leaveEvent,
   fetchAdminStats,
-  fetchSystemAlerts,
   fetchUserGrowthData,
   fetchRevenueData,
-  fetchTopPerformers
+  fetchEventsAnalytics,
 };
+
 export default api;

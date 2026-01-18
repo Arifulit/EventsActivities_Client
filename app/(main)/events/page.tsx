@@ -1,411 +1,328 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Badge } from '@/app/components/ui/badge';
-import { format, parseISO } from 'date-fns';
-import { Loader2, Search, Calendar as CalendarIcon, MapPin, Users as UsersIcon, DollarSign, Star, Filter, Sparkles, TrendingUp, Clock, Heart, Leaf, ArrowUpRight, Globe, Zap, Target, Award, Compass } from 'lucide-react';
 import EventCard from '@/app/components/events/EventCard';
-import { getEvents, type Event } from '@/app/lib/events';
 import ProfessionalSearch from '@/components/search/ProfessionalSearch';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { Calendar, Filter } from 'lucide-react';
+import toast from 'react-hot-toast';
+import api from '@/app/lib/api';
+import { Event } from '@/app/lib/events';
 
-type EventStatus = 'open' | 'upcoming' | 'past' | 'cancelled';
-type EventType = 'workshop' | 'meetup' | 'conference' | 'social' | 'party' | 'competition' | 'webinar' | 'all';
-
-interface Filters {
-  type: EventType;
-  location: string;
-  status: EventStatus;
-  search: string;
+interface ApiResponse {
+  success: boolean;
+  data: Event[];
+  total: number;
+  page: number;
+  pages: number;
 }
 
 export default function EventsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  
   const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  
-  const [filters, setFilters] = useState<Filters>({
-    type: (searchParams.get('type') as EventType) || 'all',
-    location: searchParams.get('location') || '',
-    status: (searchParams.get('status') as EventStatus) || 'open',
-    search: searchParams.get('search') || ''
-  });
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedCity, setSelectedCity] = useState('all');
+  const [priceRange, setPriceRange] = useState('all');
+  const [sortBy, setSortBy] = useState('upcoming');
 
-  // Initial load only
+  const categories = ['music', 'gaming', 'sports', 'education', 'food', 'photography', 'travel', 'technology', 'entertainment', 'networking', 'business', 'health', 'arts', 'other'];
+  const types = ['workshop', 'conference', 'meetup', 'party', 'competition', 'webinar'];
+
+  // Fetch all events
   useEffect(() => {
-    const initialLoad = async () => {
+    const fetchEvents = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setIsLoading(true);
+        const response = await api.get<ApiResponse>('/events?status=open');
         
-        // Load initial events without filters
-        const eventsData = await getEvents();
-        setEvents(eventsData || []);
-        setHasSearched(true);
-      } catch (err) {
-        console.error('Error loading events:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load events');
-        setEvents([]); // Ensure events is always an array
+        console.log('=== Events Fetched ===');
+        if (response.data.success && Array.isArray(response.data.data)) {
+          console.log('Total events:', response.data.data.length);
+          response.data.data.forEach((event, index) => {
+            console.log(`Event ${index + 1}:`, {
+              title: event.title,
+              id: event._id,
+              image: event.image || 'NO IMAGE',
+              category: event.category
+            });
+          });
+          setEvents(response.data.data);
+        } else if (Array.isArray(response.data)) {
+          setEvents(response.data);
+        } else {
+          setEvents([]);
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch events:', error);
+        toast.error('Failed to load events');
+        setEvents([]);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    initialLoad();
-  }, []); // Only run once on mount
+    fetchEvents();
+  }, []);
 
-  const handleFilterChange = (name: keyof Filters, value: string) => {
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
+  // Filter and sort events
+  const applyFilters = useCallback(() => {
+    let filtered = [...events];
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Build filter parameters
-      const params: any = {};
-      if (filters.type && filters.type !== 'all') params.type = filters.type;
-      if (filters.location) params.location = filters.location;
-      if (filters.status && filters.status !== 'open') params.status = filters.status;
-      if (filters.search) params.search = filters.search;
-      
-      // Call API with filters
-      const eventsData = await getEvents(params);
-      setEvents(eventsData || []);
-      
-      // Update URL
-      const urlParams = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) urlParams.set(key, value);
-      });
-      
-      router.replace(`/events?${urlParams.toString()}`, { scroll: false });
-    } catch (err) {
-      console.error('Error searching events:', err);
-      setError(err instanceof Error ? err.message : 'Failed to search events');
-      setEvents([]); // Ensure events is always an array
-    } finally {
-      setLoading(false);
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        event =>
+          event.title.toLowerCase().includes(query) ||
+          event.description.toLowerCase().includes(query) ||
+          (event.tags && event.tags.some((tag: string) => tag.toLowerCase().includes(query)))
+      );
     }
-  };
 
-  const resetFilters = () => {
-    setFilters({
-      type: 'all',
-      location: '',
-      status: 'open',
-      search: ''
-    });
-  };
-  
-  const getEventStatusColor = (status: EventStatus) => {
-    switch (status) {
-      case 'open':
-        return 'bg-green-100 text-green-800';
+    // Category filter
+    if (selectedCategory && selectedCategory !== 'all') {
+      filtered = filtered.filter(event => event.category === selectedCategory);
+    }
+
+    // Type filter
+    if (selectedType && selectedType !== 'all') {
+      filtered = filtered.filter(event => event.type === selectedType);
+    }
+
+    // City filter
+    if (selectedCity && selectedCity !== 'all') {
+      filtered = filtered.filter(event => event.location?.city === selectedCity);
+    }
+
+    // Price range filter
+    if (priceRange !== 'all') {
+      if (priceRange === 'free') {
+        filtered = filtered.filter(event => event.price === 0 || event.paymentType === 'free');
+      } else if (priceRange === 'paid') {
+        filtered = filtered.filter(event => event.price > 0 && event.paymentType !== 'free');
+      } else if (priceRange === 'under50') {
+        filtered = filtered.filter(event => event.price > 0 && event.price < 50);
+      } else if (priceRange === 'under100') {
+        filtered = filtered.filter(event => event.price > 0 && event.price < 100);
+      }
+    }
+
+    // Sort
+    switch (sortBy) {
       case 'upcoming':
-        return 'bg-blue-100 text-blue-800';
-      case 'past':
-        return 'bg-gray-100 text-gray-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+        filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        break;
+      case 'popular':
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+      case 'price-low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
     }
+
+    setFilteredEvents(filtered);
+  }, [events, searchQuery, selectedCategory, selectedType, selectedCity, priceRange, sortBy]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
-  // Sort events by date (upcoming first)
-  const sortedEvents = (events || []).sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    return dateA.getTime() - dateB.getTime();
-  });
+  const uniqueCities = Array.from(new Set(events.map(e => e.location?.city).filter(Boolean)));
 
-  // Get stats for the page
-  const totalEvents = events?.length || 0;
-  const upcomingEvents = (events || []).filter(e => new Date(e.date) > new Date()).length;
-  const todayEvents = (events || []).filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length;
-  const popularEvents = (events || []).filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length;
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="container mx-auto py-12 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <span className="ml-2">Loading events...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-12 text-center">
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg inline-block">
-          <h3 className="font-medium">Error loading events</h3>
-          <p className="text-sm mt-1">{error}</p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </Button>
-        </div>
+      <div className="min-h-screen bg-linear-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
-      {/* Professional Header */}
-     
+    <div className="min-h-screen bg-linear-to-br from-purple-50 via-pink-50 to-blue-50">
+      {/* Header Section */}
+      <div className="bg-linear-to-r from-purple-600 via-pink-600 to-blue-600 text-white py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold mb-2">Discover Events</h1>
+          <p className="text-lg text-purple-100">Find and join events that match your interests</p>
+        </div>
+      </div>
 
-        {/* Search and Filters Section */}
-        <div className="container mx-auto px-4 py-8">
-          <Card className="border-0 shadow-xl bg-white rounded-2xl">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-emerald-100 rounded-xl">
-                    <Search className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Find Your Perfect Event</h2>
-                    <p className="text-gray-600">Search and filter events that match your interests</p>
-                  </div>
-                </div>
-                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 px-4 py-2">
-                  {events.length} events found
-                </Badge>
-              </div>
-            
-            <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-                <div className="lg:col-span-2">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar - Filters */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-4 border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="w-5 h-5" />
+                  Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Search */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-2">Search Events</label>
                   <ProfessionalSearch
-                    value={filters.search}
-                    onChange={(value) => handleFilterChange('search', value)}
-                    onSearch={(query) => {
-                      handleFilterChange('search', query);
-                      handleSearch(new Event('submit') as any);
-                    }}
-                    placeholder="Search events, venues, tags..."
-                    className="w-full"
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    onSearch={handleSearch}
+                    placeholder="Search events..."
                   />
                 </div>
-                
+
+                {/* Category Filter */}
                 <div>
-                  <Select
-                    value={filters.type}
-                    onValueChange={(value) => handleFilterChange('type', value as EventType)}
-                  >
-                    <SelectTrigger className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500">
-                      <SelectValue placeholder="Event Type" />
+                  <label className="text-sm font-semibold text-gray-700 block mb-2">Category</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Categories" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Type Filter */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-2">Event Type</label>
+                  <Select value={selectedType} onValueChange={setSelectedType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
                       <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="workshop">Workshop</SelectItem>
-                      <SelectItem value="meetup">Meetup</SelectItem>
-                      <SelectItem value="conference">Conference</SelectItem>
-                      <SelectItem value="party">Party</SelectItem>
-                      <SelectItem value="competition">Competition</SelectItem>
-                      <SelectItem value="webinar">Webinar</SelectItem>
+                      {types.map(type => (
+                        <SelectItem key={type} value={type}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
+
+                {/* City Filter */}
+                {uniqueCities.length > 0 && (
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-2">City</label>
+                    <Select value={selectedCity} onValueChange={setSelectedCity}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Cities" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        <SelectItem value="all">All Cities</SelectItem>
+                        {uniqueCities.map(city => (
+                          <SelectItem key={city} value={city || ''}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Price Filter */}
                 <div>
-                  <Input
-                    placeholder="City"
-                    className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500"
-                    value={filters.location}
-                    onChange={(e) => handleFilterChange('location', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Select
-                    value={filters.status}
-                    onValueChange={(value) => handleFilterChange('status', value as EventStatus)}
-                  >
-                    <SelectTrigger className="h-14 text-base border-gray-200 focus:border-green-500 focus:ring-green-500">
-                      <SelectValue placeholder="Status" />
+                  <label className="text-sm font-semibold text-gray-700 block mb-2">Price</label>
+                  <Select value={priceRange} onValueChange={setPriceRange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Prices" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="upcoming">Upcoming</SelectItem>
-                      <SelectItem value="past">Past</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="all">All Prices</SelectItem>
+                      <SelectItem value="free">Free</SelectItem>
+                      <SelectItem value="under50">Under $50</SelectItem>
+                      <SelectItem value="under100">Under $100</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
-                <Button 
-                  type="submit" 
-                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Search Events
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={resetFilters} 
-                  className="px-8 py-3 border-gray-300 hover:bg-gray-50 font-medium transition-all duration-300"
+
+                {/* Reset Filters */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('all');
+                    setSelectedType('all');
+                    setSelectedCity('all');
+                    setPriceRange('all');
+                    setSortBy('upcoming');
+                  }}
                 >
                   Reset Filters
                 </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Events Grid Section */}
-        <div className="container mx-auto px-4 py-8">
-          {sortedEvents.length === 0 ? (
-            <div className="text-center py-24">
-              <div className="max-w-lg mx-auto">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-8">
-                  <CalendarIcon className="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 className="text-3xl font-bold text-gray-900 mb-4">No events found</h3>
-                <p className="text-lg text-gray-600 mb-8">
-                  {filters.search || filters.type !== 'all' || filters.location || filters.status !== 'open'
-                    ? 'Try adjusting your filters to find more events.'
-                    : 'There are no events available at the moment. Check back later!'}
-                </p>
-                <div className="flex gap-4 justify-center">
-                  <Button 
-                    variant="outline" 
-                    onClick={resetFilters}
-                    className="px-8 py-3 border-gray-300 hover:bg-gray-50 font-medium"
-                  >
-                    Clear Filters
-                  </Button>
-                  <Link href="/events/create">
-                    <Button className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-lg">
-                      Create Event
-                    </Button>
-                  </Link>
-                </div>
+          {/* Main Content - Events Grid */}
+          <div className="lg:col-span-3">
+            {/* Sort Options */}
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-semibold text-gray-900">{filteredEvents.length}</span> events
               </div>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="popular">Popular</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-        ) : (
-          <div className="space-y-16">
-            {/* Featured Events - Happening Today */}
-            {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-red-100 rounded-xl">
-                      <Clock className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-3xl font-bold text-gray-900">Happening Today</h2>
-                      <p className="text-gray-600">Events scheduled for today</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-red-100 text-red-700 border-red-200 px-4 py-2">
-                    {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).length} events
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sortedEvents.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).map((event) => (
-                    <EventCard
-                      key={event._id}
-                      event={event}
-                      onUpdate={(updatedEvent) => {
-                        setEvents(prev => prev.map(e => e._id === updatedEvent._id ? updatedEvent : e));
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Popular Events Section */}
-            {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-orange-100 rounded-xl">
-                      <TrendingUp className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-3xl font-bold text-gray-900">Popular Events</h2>
-                      <p className="text-gray-600">Trending events with high attendance</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 px-4 py-2">
-                    {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).length} events
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sortedEvents.filter(e => e.currentParticipants >= e.maxParticipants * 0.8).slice(0, 6).map((event) => (
-                    <EventCard
-                      key={event._id}
-                      event={event}
-                      onUpdate={(updatedEvent) => {
-                        setEvents(prev => prev.map(e => e._id === updatedEvent._id ? updatedEvent : e));
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* All Events Section */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-emerald-100 rounded-xl">
-                    <CalendarIcon className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900">All Events</h2>
-                    <p className="text-gray-600">Browse all available events</p>
-                  </div>
-                </div>
-                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 px-4 py-2">
-                  {sortedEvents.length} events
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedEvents.map((event) => (
+            {/* Events Grid */}
+            {filteredEvents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredEvents.map(event => (
                   <EventCard
                     key={event._id}
                     event={event}
-                    onUpdate={(updatedEvent) => {
-                      setEvents(prev => prev.map(e => e._id === updatedEvent._id ? updatedEvent : e));
-                    }}
+                    className="h-full"
                   />
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-12">
+                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
+                <p className="text-gray-500">Try adjusting your filters or search terms</p>
+              </div>
+            )}
           </div>
-        )}
         </div>
       </div>
     </div>

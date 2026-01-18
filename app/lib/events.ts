@@ -38,6 +38,10 @@ export interface Event {
     venue: string;
     address: string;
     city: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
   };
   createdAt: string;
   updatedAt: string;
@@ -67,32 +71,69 @@ export interface MyEventsResponse {
 
 export const joinEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
-    console.log('Joining event:', eventId);
+    console.log('🔗 Joining Event:');
+    console.log('  - Event ID:', eventId);
+    console.log('  - Type:', typeof eventId);
+    console.log('  - Length:', eventId.length);
+    console.log('  - Is 24-char hex:', /^[0-9a-fA-F]{24}$/.test(eventId));
     
     // Use the API instance with proper authentication
     const response = await api.post(`/events/${eventId}/join`);
     console.log('Join event response:', response.data);
     
+    // Validate response data to ensure participant count is reasonable
+    if (response.data.data && response.data.data.currentParticipants < 0) {
+      console.warn('⚠️ Backend returned negative participant count after join:', response.data.data.currentParticipants);
+      response.data.data.currentParticipants = 1; // Fix on client side - at least the current user
+    }
+    
     return response.data;
   } catch (error: any) {
-    console.error('Error joining event:', error);
-    console.error('Error response data:', error.response?.data);
+    console.error('❌ Error joining event:', error);
+    console.error('❌ Error response data:', error.response?.data);
+    console.error('❌ Error status:', error.response?.status);
+    console.error('❌ Event ID that failed:', eventId);
+    
+    // Handle specific validation errors
+    if (error.response?.data?.message?.includes('currentParticipants')) {
+      throw new Error('Event participant count error. Please refresh the page and try again.');
+    }
+    
     throw error;
   }
 };
 
 export const leaveEvent = async (eventId: string): Promise<JoinEventResponse> => {
   try {
-    console.log('Leaving event:', eventId);
+    console.log('🚪 Leaving Event:');
+    console.log('  - Event ID:', eventId);
+    console.log('  - Type:', typeof eventId);
+    console.log('  - Length:', eventId.length);
+    console.log('  - Is 24-char hex:', /^[0-9a-fA-F]{24}$/.test(eventId));
     
     // Use the API instance with proper authentication
     const response = await api.post(`/events/${eventId}/leave`);
     console.log('Leave event response:', response.data);
     
+    // Validate response data to prevent negative participant counts
+    if (response.data.data && response.data.data.currentParticipants < 0) {
+      console.warn('⚠️ Backend returned negative participant count:', response.data.data.currentParticipants);
+      response.data.data.currentParticipants = 0; // Fix on client side
+    }
+    
     return response.data;
   } catch (error: any) {
-    console.error('Error leaving event:', error);
-    console.error('Error response data:', error.response?.data);
+    console.error('❌ Error leaving event:', error);
+    console.error('❌ Error response data:', error.response?.data);
+    console.error('❌ Error status:', error.response?.status);
+    console.error('❌ Event ID that failed:', eventId);
+    
+    // Handle specific validation errors
+    if (error.response?.data?.message?.includes('currentParticipants') && 
+        error.response?.data?.message?.includes('less than minimum')) {
+      throw new Error('Cannot leave event: Participant count would become negative. Please refresh the page.');
+    }
+    
     throw error;
   }
 };
@@ -135,10 +176,20 @@ export const getEventById = async (eventId: string): Promise<Event> => {
     throw new Error('Event ID is required and must be a string');
   }
 
+  console.log('🔍 Event ID Validation:');
+  console.log('  - Raw ID:', eventId);
+  console.log('  - Type:', typeof eventId);
+  console.log('  - Length:', eventId.length);
+  console.log('  - Trimmed:', `"${eventId.trim()}"`);
+  console.log('  - Is 24-char hex:', /^[0-9a-fA-F]{24}$/.test(eventId));
+
   // Check for valid ObjectId format (24-character hex string)
   // If it's not a valid ObjectId, we'll still try the request but handle the error gracefully
   if (!/^[0-9a-fA-F]{24}$/.test(eventId)) {
-    console.warn('Invalid event ID format:', eventId);
+    console.warn('⚠️ Invalid event ID format:', eventId);
+    console.warn('  Expected: 24-character hexadecimal string (MongoDB ObjectId)');
+    console.warn('  Example: 507f1f77bcf86cd799439011');
+    // Don't throw error here - let the backend handle validation
   }
 
   try {

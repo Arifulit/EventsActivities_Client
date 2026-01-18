@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title>Event Image Fallback</title>
+  <desc>Placeholder image used when an event image fails to load.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#g)"/>
+  <g fill="#ffffff" opacity="0.9" transform="translate(600,315)">
+    <g transform="translate(-50,-70) scale(4)">
+      <!-- Simple calendar icon -->
+      <rect x="2" y="6" width="20" height="16" rx="2" ry="2" fill="#ffffff" opacity="0.25"/>
+      <rect x="4" y="8" width="16" height="12" rx="1" ry="1" fill="#ffffff" opacity="0.4"/>
+      <rect x="6" y="4" width="2" height="4" fill="#ffffff"/>
+      <rect x="16" y="4" width="2" height="4" fill="#ffffff"/>
+    </g>
+  </g>
+  <text x="600" y="370" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="42" text-anchor="middle" fill="#ffffff" opacity="0.95">Image Unavailable</text>
+  <text x="600" y="420" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="22" text-anchor="middle" fill="#ffffff" opacity="0.8">A local fallback is shown</text>
+</svg>
