@@ -2,6 +2,9 @@
 
 A comprehensive social platform for connecting people with events and activities based on shared interests. Built with Next.js 13, React 18, TypeScript, and Tailwind CSS.
 
+
+[![Watch Video](assets/thumbnail.png)](https://drive.google.com/file/d/1sUXPzmMJPO3SNyTdxSk9SGJ1x-GZ0JB4/view?usp=sharing)
+
 ## 🚀 Features
 
 ### Core Functionality
