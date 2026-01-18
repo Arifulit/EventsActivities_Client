@@ -40,16 +40,10 @@ export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect authenticated users to appropriate dashboard
+  // Redirect authenticated users to main page
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'host') {
-        router.push('/dashboard/host');
-      } else if (user.role === 'admin') {
-        router.push('/dashboard/admin');
-      } else {
-        router.push('/dashboard/user');
-      }
+      router.push('/');
     }
   }, [user, loading, router]);
 

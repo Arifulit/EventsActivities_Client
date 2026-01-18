@@ -84,16 +84,16 @@ export default function HomePage() {
   }, []);
   const router = useRouter();
 
-  // Authentication logic for home page
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        // If user is logged in, redirect to dashboard
-        router.push('/dashboard');
-      }
-      // If user is not logged in, show home page (landing page)
-    }
-  }, [user, loading, router]);
+  // Authentication logic for home page - allow logged-in users to see the main page
+  // useEffect(() => {
+  //   if (!loading) {
+  //     if (user) {
+  //       // If user is logged in, redirect to dashboard
+  //       router.push('/dashboard');
+  //     }
+  //     // If user is not logged in, show home page (landing page)
+  //   }
+  // }, [user, loading, router]);
 
   if (loading) {
     return (

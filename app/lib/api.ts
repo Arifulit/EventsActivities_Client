@@ -10,10 +10,11 @@ const api = axios.create({
   timeout: 10000, 
 });
 
-// Log the base URL for debugging
+// Log base URL for debugging
 if (typeof window !== 'undefined') {
   console.log('API Base URL:', api.defaults.baseURL);
   console.log('Environment NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+  console.log('Using:', process.env.NEXT_PUBLIC_API_URL ? 'External Backend' : 'Local Next.js API Routes');
 }
 
 api.interceptors.request.use((config) => {
