@@ -13,12 +13,12 @@ import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Badge } from '@/app/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/app/components/ui/card';
-import { 
-  MapPin, 
-  DollarSign, 
-  Users, 
-  Save, 
-  X, 
+import {
+  MapPin,
+  DollarSign,
+  Users,
+  Save,
+  X,
   Brain,
   Upload,
   Tag,
@@ -52,13 +52,13 @@ const eventSchema = z.object({
 type EventFormData = z.infer<typeof eventSchema>;
 
 const categories = [
-  'technology', 'business', 'education', 'health', 'entertainment', 'sports', 
-  'music', 'food', 'travel', 'photography', 'writing', 'other'
+  'technology', 'education', 'health', 'sports',
+  'music', 'food', 'travel', 'photography',
 ];
 
 const eventTypes = [
-  'workshop', 'seminar', 'conference', 'meetup', 'webinar', 
-  'training', 'social', 'competition', 'other'
+  'workshop', 'seminar', 'conference', 'meetup', 
+  'training', 'social', 
 ];
 
 export default function EditEventPage() {
@@ -120,7 +120,7 @@ export default function EditEventPage() {
       try {
         const response = await api.get(`/events/${params.id}`);
         const event = response.data.data;
-        
+
         if (event) {
           // Map old enum values to new ones
           const categoryMap: { [key: string]: string } = {
@@ -130,10 +130,10 @@ export default function EditEventPage() {
           const typeMap: { [key: string]: string } = {
             'networking': 'meetup',
           };
-          
+
           const mappedCategory = categoryMap[event.category] || event.category;
           const mappedType = typeMap[event.type] || event.type;
-          
+
           form.reset({
             title: event.title || '',
             description: event.description || '',
@@ -150,7 +150,7 @@ export default function EditEventPage() {
             status: event.status || 'open',
             isPublic: event.isPublic !== false,
           });
-          
+
           setFormData({
             tags: event.tags || [],
             requirements: event.requirements || [],
@@ -278,10 +278,10 @@ export default function EditEventPage() {
 
   const generateAIContent = async () => {
     setIsAILoading(true);
-    
+
     try {
       const currentValues = form.getValues();
-      
+
       // Call AI service for content generation
       const response = await api.post('/ai/generate-content', {
         title: currentValues.title,
@@ -290,9 +290,9 @@ export default function EditEventPage() {
         tags: formData.tags,
         requirements: formData.requirements
       });
-      
+
       const aiContent = response.data.data;
-      
+
       form.setValue('title', aiContent.title || currentValues.title);
       form.setValue('description', aiContent.description || currentValues.description);
       setFormData(prev => ({
@@ -300,7 +300,7 @@ export default function EditEventPage() {
         tags: aiContent.tags || prev.tags,
         requirements: aiContent.requirements || prev.requirements
       }));
-      
+
       toast.success('AI content generated successfully!');
     } catch (error: any) {
       console.error('Failed to generate AI content:', error);
@@ -312,15 +312,15 @@ export default function EditEventPage() {
 
   const getAIPricing = async () => {
     setIsAILoading(true);
-    
+
     try {
       const currentValues = form.getValues();
       const basePrice = currentValues.price || 50;
-      const categoryMultiplier = currentValues.category === 'technology' ? 1.2 : 
-                               currentValues.category === 'business' ? 1.5 : 1.0;
+      const categoryMultiplier = currentValues.category === 'technology' ? 1.2 :
+        currentValues.category === 'business' ? 1.5 : 1.0;
       const durationMultiplier = currentValues.duration > 120 ? 1.3 : 1.0;
       const suggestedPrice = Math.round(basePrice * categoryMultiplier * durationMultiplier);
-      
+
       form.setValue('price', suggestedPrice);
       toast.success(`AI suggests $${suggestedPrice} based on market analysis`);
     } catch (error) {
@@ -333,7 +333,7 @@ export default function EditEventPage() {
 
   const onSubmit: SubmitHandler<EventFormData> = async (data) => {
     setSubmitting(true);
-    
+
     try {
       const eventData = {
         title: data.title,
@@ -359,7 +359,7 @@ export default function EditEventPage() {
       };
 
       const response = await api.put(`/events/${params.id}`, eventData);
-      
+
       if (response.data.success) {
         toast.success('Event updated successfully!');
         router.push('/dashboard/host/events');
@@ -392,7 +392,7 @@ export default function EditEventPage() {
         <div className="absolute inset-0 bg-grid-white/10 opacity-10"></div>
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
         <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -450,15 +450,15 @@ export default function EditEventPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="category" className="text-sm font-semibold text-gray-700">Category *</Label>
-                      <Select 
-                        value={form.watch('category')} 
+                      <Label htmlFor="category" className="text-sm font-semibold text-black-700 bg-white">Category *</Label>
+                      <Select
+                        value={form.watch('category')}
                         onValueChange={(value) => form.setValue('category', value)}
                       >
                         <SelectTrigger className={`mt-2 ${form.formState.errors.category ? 'border-red-500' : ''}`}>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {categories.map(category => (
                             <SelectItem key={category} value={category}>
                               {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -470,17 +470,16 @@ export default function EditEventPage() {
                         <p className="text-red-500 text-sm mt-1">{form.formState.errors.category.message}</p>
                       )}
                     </div>
-
                     <div>
                       <Label htmlFor="type" className="text-sm font-semibold text-gray-700">Event Type *</Label>
-                      <Select 
-                        value={form.watch('type')} 
+                      <Select
+                        value={form.watch('type')}
                         onValueChange={(value) => form.setValue('type', value)}
                       >
                         <SelectTrigger className={`mt-2 ${form.formState.errors.type ? 'border-red-500' : ''}`}>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {eventTypes.map(type => (
                             <SelectItem key={type} value={type}>
                               {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -859,8 +858,8 @@ export default function EditEventPage() {
                 <CardContent className="space-y-4 p-6">
                   <div>
                     <Label htmlFor="status" className="text-sm font-semibold text-gray-700">Status</Label>
-                    <Select 
-                      value={form.watch('status')} 
+                    <Select
+                      value={form.watch('status')}
                       onValueChange={(value) => form.setValue('status', value as any)}
                     >
                       <SelectTrigger className="mt-2 border-gray-300">
@@ -909,7 +908,7 @@ export default function EditEventPage() {
                         </>
                       )}
                     </Button>
-                    
+
                     <Button
                       type="button"
                       variant="outline"

@@ -734,13 +734,13 @@ export default function AdminHosts() {
                                     className="w-48 border shadow-lg bg-white rounded-lg"
                                     sideOffset={5}
                                   >
-                                    <DropdownMenuItem 
+                                    {/* <DropdownMenuItem 
                                       onClick={() => handleHostAction(host._id, 'view')}
                                       className="cursor-pointer hover:bg-gray-50 transition-colors"
                                     >
                                       <Eye className="w-4 h-4 mr-2 text-blue-600" />
                                       View Details
-                                    </DropdownMenuItem>
+                                    </DropdownMenuItem> */}
                                     <DropdownMenuSeparator className="bg-gray-100" />
                                     
                                     {!host.isVerified ? (
@@ -868,13 +868,13 @@ export default function AdminHosts() {
                                   className="w-48 border shadow-lg bg-white rounded-lg"
                                   sideOffset={5}
                                 >
-                                  <DropdownMenuItem 
+                                  {/* <DropdownMenuItem 
                                     onClick={() => handleHostAction(host._id, 'view')}
                                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                                   >
                                     <Eye className="w-4 h-4 mr-2 text-blue-600" />
                                     View Details
-                                  </DropdownMenuItem>
+                                  </DropdownMenuItem> */}
                                   <DropdownMenuSeparator className="bg-gray-100" />
                                   
                                   {!host.isVerified ? (
